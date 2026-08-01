@@ -122,7 +122,7 @@ def main():
 
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.image(pil_image, caption="Uploaded X-ray", use_container_width=True)
+        st.image(pil_image, caption="Uploaded X-ray", width='stretch')
 
     with torch.no_grad():
         logits = model(image_tensor.unsqueeze(0).to(device))
@@ -130,7 +130,7 @@ def main():
 
     with col2:
         st.subheader("Predicted probabilities")
-        st.plotly_chart(render_probability_chart(classes, probs), use_container_width=True)
+        st.plotly_chart(render_probability_chart(classes, probs), width='stretch')
 
     top_class_idx = int(np.argmax(probs))
     top_class_name = classes[top_class_idx]
@@ -146,7 +146,7 @@ def main():
 
     with explain_col1:
         st.markdown("**Grad-CAM** — which regions drove this prediction")
-        st.image(overlay, use_container_width=True)
+        st.image(overlay, width='stretch')
 
     cf_explainer = OcclusionCounterfactualExplainer(model, gradcam_explainer, device=device)
     result = cf_explainer.generate(image_tensor, top_class_idx, top_class_name)
@@ -154,7 +154,7 @@ def main():
     with explain_col2:
         st.markdown("**Counterfactual** — confidence after masking that region")
         figure = make_side_by_side_figure(result)
-        st.image(figure, use_container_width=True)
+        st.image(figure, width='stretch')
         flip_msg = "🔻 Prediction flipped!" if result.flipped else "No flip at 0.5 threshold"
         st.caption(
             f"{result.original_probability:.1%} → {result.counterfactual_probability:.1%}  "
