@@ -1,8 +1,12 @@
 # 🩺 Explainable Multimodal Diagnostic Support System
 
+![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
+
 > Chest X-ray diagnosis with fused clinical metadata, and visual explanations (Grad-CAM + occlusion-based counterfactuals) so the model's reasoning is inspectable instead of a black box.
 
-**Status:** 🚧 In active development — see [Roadmap](#roadmap) below.
+<!-- 🔗 Live Demo link goes here once deployed — see docs/deployment.md -->
 
 <!-- 🖼️ Dashboard demo GIF/screenshot goes here once built -->
 
@@ -10,10 +14,12 @@
 
 ## Why this project
 
-Clinical AI models are often accurate but opaque, which limits real-world trust. This project predicts lung conditions from chest X-rays **fused with structured patient metadata** (age, sex, view position, and — where available — clinical variables like smoking status and oxygen level), and pairs every prediction with:
+Clinical AI models are often accurate but opaque, which limits real-world trust. This project predicts lung conditions from chest X-rays **fused with structured patient metadata** (age, sex, and view position), and pairs every prediction with:
 
 - A **Grad-CAM heatmap** showing which image regions drove the prediction.
 - An **occlusion-based counterfactual view** showing how the model's confidence changes when the highlighted region is masked — an intuitive proxy for "what if this finding wasn't there?"
+
+An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measures what the tabular metadata adds over the image alone. See [`docs/architecture.md`](docs/architecture.md) for full technical detail and [`docs/ethics_statement.md`](docs/ethics_statement.md) for limitations and intended use.
 
 ## Architecture
 
@@ -163,7 +169,11 @@ reduce `epochs` or use a data subset for a faster smoke run.)*
 
 ## Limitations & Ethics
 
-This is a research/portfolio prototype trained on a public dataset and is **not validated for clinical use**. Public chest X-ray datasets carry known demographic and label-noise biases; predictions should not be treated as diagnostic ground truth.
+This is a research/portfolio prototype trained on a public dataset and is **not validated for clinical use**. See [`docs/ethics_statement.md`](docs/ethics_statement.md) for a full discussion of dataset limitations, explainability caveats, and intended use.
+
+## Deploying a live demo
+
+See [`docs/deployment.md`](docs/deployment.md) for step-by-step instructions to deploy the dashboard to Hugging Face Spaces.
 
 ## License
 
