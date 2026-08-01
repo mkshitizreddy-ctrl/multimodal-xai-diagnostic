@@ -1,5 +1,28 @@
 # Ethics & Limitations Statement
 
+## ⚠️ Synthetic clinical data — read this before citing any results
+
+The current pipeline uses the [Kaggle Chest X-ray Pneumonia dataset](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia),
+which ships **images only** — no EHR/vitals data. To keep this project
+genuinely multimodal (rather than reverting to a vision-only classifier),
+`data/scripts/prepare_pneumonia_dataset.py` **generates synthetic** age,
+gender, temperature, and SpO2 values for every image.
+
+These are **not real patient measurements.** They are simulated with
+clinically plausible distributions correlated with the Pneumonia label
+(fever and lower oxygen saturation more likely when Pneumonia is present)
+specifically so the fusion ablation study demonstrates something real about
+the *architecture's* ability to exploit correlated tabular signal — not to
+fabricate clinical findings. Any AUROC improvement from fusion in this
+version of the project reflects the model successfully learning the
+synthetic correlation that was deliberately built in, **not** a genuine
+clinical discovery. This must be stated explicitly in any presentation,
+report, or interview discussion of this project's results.
+
+(An earlier version of this project used the NIH Chest X-ray14 dataset,
+which does include some real patient metadata — age, gender, view position
+— but not vitals like temperature/SpO2. See `configs/data_nih_legacy.yaml`.)
+
 ## Not for clinical use
 
 This is a research/portfolio prototype built for demonstrating multimodal
@@ -10,18 +33,20 @@ judgment.
 
 ## Dataset limitations
 
-- **NIH Chest X-ray14**'s labels were extracted from radiology reports
-  using NLP (not verified by radiologists for every image), so a portion
-  of labels carry noise. Published estimates put label accuracy at roughly
-  90%+ for most classes, but this is not ground truth in the way a
-  radiologist-adjudicated dataset would be.
-- The dataset's patient population, imaging equipment, and clinical
-  protocols reflect a specific set of US hospitals at a specific point in
-  time. A model trained on it may not generalize to other populations,
-  scanners, or imaging protocols without further validation.
-- Some pathologies (e.g. Hernia) have very few positive examples, so
-  per-class performance for rare findings should be interpreted with wide
-  uncertainty.
+- **Source population**: the Chest X-ray Pneumonia dataset was collected
+  from pediatric patients (ages 1–5) at Guangzhou Women and Children's
+  Medical Center. A model trained on it should not be assumed to
+  generalize to adult patients, other hospitals, or other imaging
+  equipment.
+- **Patient grouping for splits**: pneumonia-positive filenames encode a
+  person identifier that this pipeline groups by to avoid leaking a
+  patient's images across train/val. Normal-class filenames do not expose
+  an equivalent identifier, so each normal image is conservatively treated
+  as its own patient for splitting purposes — a known limitation of this
+  specific dataset's file naming, not a data leakage bug.
+- **Small dataset**: ~5,800 total images is small by deep learning
+  standards, which increases variance in reported metrics compared to a
+  dataset the size of full NIH Chest X-ray14.
 
 ## Explainability caveats
 
@@ -50,9 +75,10 @@ This repository is intended for:
 - Educational and portfolio purposes
 - Demonstrating a multimodal fusion + explainability pipeline
 - A starting point for further research (e.g. with radiologist-verified
-  datasets and formal clinical validation studies)
+  datasets, real EHR data, and formal clinical validation studies)
 
 It is **not** intended for:
 - Direct patient care or diagnosis
 - Deployment in any clinical setting without extensive additional
-  validation, regulatory clearance, and radiologist oversight
+  validation, regulatory clearance, radiologist oversight, and replacement
+  of all synthetic data with real, ethically-sourced clinical data
