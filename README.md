@@ -6,7 +6,7 @@
 
 > Chest X-ray diagnosis with fused clinical metadata, and visual explanations (Grad-CAM + occlusion-based counterfactuals) so the model's reasoning is inspectable instead of a black box.
 
-🔗 **[Live Demo](https://multimodal-xai-diagnostic-ggw2pxeifmdvl3qj8qxh9c.streamlit.app)** — currently running in demo mode (no trained checkpoint uploaded yet); see the Dashboard section below.
+<!-- 🔗 Live Demo link goes here once deployed — see docs/deployment.md -->
 
 <!-- 🖼️ Dashboard demo GIF/screenshot goes here once built -->
 
@@ -14,12 +14,14 @@
 
 ## Why this project
 
-Clinical AI models are often accurate but opaque, which limits real-world trust. This project predicts lung conditions from chest X-rays **fused with structured patient metadata** (age, sex, and view position), and pairs every prediction with:
+Clinical AI models are often accurate but opaque, which limits real-world trust. This project predicts pneumonia from pediatric chest X-rays **fused with patient vitals** (age, gender, temperature, SpO2 — see note below), and pairs every prediction with:
 
 - A **Grad-CAM heatmap** showing which image regions drove the prediction.
 - An **occlusion-based counterfactual view** showing how the model's confidence changes when the highlighted region is masked — an intuitive proxy for "what if this finding wasn't there?"
 
-An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measures what the tabular metadata adds over the image alone. See [`docs/architecture.md`](docs/architecture.md) for full technical detail and [`docs/ethics_statement.md`](docs/ethics_statement.md) for limitations and intended use.
+⚠️ **The tabular vitals (temperature, SpO2, age) are synthetically generated** — the source dataset ships images only, no real EHR data. They're simulated with clinically plausible correlations (fever/lower oxygen for pneumonia-positive cases) specifically to keep the fusion architecture genuinely meaningful to demonstrate. **See [`docs/ethics_statement.md`](docs/ethics_statement.md) before citing any results from this project** — this is disclosed prominently there and must be mentioned in any presentation of this work.
+
+An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measures what the tabular metadata adds over the image alone. See [`docs/architecture.md`](docs/architecture.md) for full technical detail.
 
 ## Architecture
 
@@ -28,15 +30,16 @@ An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measur
    X-ray image →│  Vision Encoder     │──┐
                 │  (DenseNet-121)     │  │
                 └────────────────────┘  │      ┌───────────────┐      ┌─────────────────────┐
-                                         ├─────▶│ Fusion Layer   │────▶│ Disease Probabilities │
+                                         ├─────▶│ Fusion Layer   │────▶│ Pneumonia Probability │
                 ┌────────────────────┐  │      └───────────────┘      └─────────────────────┘
   Patient meta →│  Tabular Encoder    │──┘              │
-   (age, sex,   │  (MLP)              │                 ▼
-   view, etc.)  └────────────────────┘        ┌───────────────────────┐
+  (age, gender, │  (MLP)              │                 ▼
+  temp, SpO2*)  └────────────────────┘        ┌───────────────────────┐
                                                │ Grad-CAM + Occlusion   │
                                                │ Explanation Module     │
                                                └───────────────────────┘
 ```
+*synthetic — see [`docs/ethics_statement.md`](docs/ethics_statement.md)
 
 *(Diagram will be replaced with a proper Excalidraw export in `docs/` once the pipeline is finalized.)*
 
@@ -46,7 +49,9 @@ An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measur
 
 ## Dataset
 
-[NIH Chest X-ray14](https://www.kaggle.com/datasets/nih-chest-xrays/data) — 112,120 X-ray images from 30,805 patients with 14 disease labels, plus patient age, gender, and view position metadata used as the tabular fusion input.
+[Chest X-ray Pneumonia (Kaggle)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) — 5,856 pediatric chest X-ray images (ages 1–5) from Guangzhou Women and Children's Medical Center, labeled Normal/Pneumonia. Tabular fusion inputs (age, gender, temperature, SpO2) are synthetically generated — see [`docs/ethics_statement.md`](docs/ethics_statement.md).
+
+*(This project originally targeted the full [NIH Chest X-ray14](https://www.kaggle.com/datasets/nih-chest-xrays/data) dataset — 112k images, 14 classes, real patient metadata — switched to the above for local disk/compute constraints. See `configs/data_nih_legacy.yaml` and `docs/architecture.md#dataset-history`.)*
 
 ## Repository structure
 
@@ -108,26 +113,26 @@ It runs out of the box even before training — if no checkpoint is found at `ch
 ## Usage
 
 ```bash
-# 1. Download the NIH Chest X-ray14 dataset (requires a Kaggle API token — see
-#    data/scripts/download_nih.py for one-time setup instructions)
-python data/scripts/download_nih.py
+# 1. Download and prepare the Chest X-ray Pneumonia dataset (requires a Kaggle
+#    API token — see data/scripts/prepare_pneumonia_dataset.py for setup).
+#    This single script downloads images, builds patient-level train/val/test
+#    splits, and generates the synthetic tabular features — no separate
+#    preprocessing step needed for this dataset.
+python data/scripts/prepare_pneumonia_dataset.py
 
-# 2. Build clean, patient-level train/val/test splits
-python data/scripts/preprocess.py --config configs/data.yaml
-
-# 3. Train the vision baseline (DenseNet-121)
+# 2. Train the vision baseline (DenseNet-121)
 python src/train.py --data-config configs/data.yaml --train-config configs/vision_baseline.yaml
 
-# 4. Evaluate on the test set and generate the results table
+# 3. Evaluate on the test set and generate the results table
 python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model.pth
 
-# 5. Train the fusion model (vision + tabular metadata)
+# 4. Train the fusion model (vision + tabular metadata)
 python src/train_fusion.py --data-config configs/data.yaml --train-config configs/fusion.yaml
 
-# 6. Evaluate the fusion model and generate its results table
+# 5. Evaluate the fusion model and generate its results table
 python src/evaluate_fusion.py --checkpoint checkpoints/fusion/best_model.pth
 
-# 7. Launch the dashboard
+# 6. Launch the dashboard
 streamlit run dashboard/app.py
 ```
 
@@ -147,7 +152,7 @@ pytest tests/ -v
 - [x] Grad-CAM explainability module
 - [x] Occlusion-based counterfactual explainer
 - [x] Streamlit dashboard
-- [x] Deploy live demo (Streamlit Community Cloud)
+- [ ] Deploy live demo (Hugging Face Spaces)
 
 ## Results
 
