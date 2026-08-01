@@ -49,6 +49,7 @@ def test_load_vision_model_demo_mode_when_no_checkpoint():
     than crashing."""
     model, classes, device, is_trained = dashboard_app.load_vision_model()
 
+    expected_classes = dashboard_app.load_data_config()["labels"]["classes"]
     assert model is not None
-    assert len(classes) == 14
+    assert len(classes) == len(expected_classes)
     assert is_trained is False  # no checkpoint exists in this test environment
