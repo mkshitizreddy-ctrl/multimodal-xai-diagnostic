@@ -1,0 +1,22 @@
+diff --git a/README.md b/README.md
+index 01de10f..4506376 100644
+--- a/README.md
++++ b/README.md
+@@ -6,7 +6,7 @@
+ 
+ > Chest X-ray diagnosis with fused clinical metadata, and visual explanations (Grad-CAM + occlusion-based counterfactuals) so the model's reasoning is inspectable instead of a black box.
+ 
+-<!-- 🔗 Live Demo link goes here once deployed — see docs/deployment.md -->
++🔗 **[Live Demo](https://multimodal-xai-diagnostic-ggw2pxeifmdvl3qj8qxh9c.streamlit.app)** — currently running in demo mode (no trained checkpoint uploaded yet); see the Dashboard section below.
+ 
+ <!-- 🖼️ Dashboard demo GIF/screenshot goes here once built -->
+ 
+@@ -147,7 +147,7 @@ pytest tests/ -v
+ - [x] Grad-CAM explainability module
+ - [x] Occlusion-based counterfactual explainer
+ - [x] Streamlit dashboard
+-- [ ] Deploy live demo (Hugging Face Spaces)
++- [x] Deploy live demo (Streamlit Community Cloud)
+ 
+ ## Results
+ 
