@@ -9,6 +9,21 @@ import torch.nn as nn
 from torchvision.models import densenet121, DenseNet121_Weights
 
 
+def build_densenet_backbone(pretrained: bool = True) -> tuple[nn.Module, int]:
+    """Builds a DenseNet-121 feature extractor (everything except the final
+    classifier). Shared by both the vision-only baseline and the fusion
+    model (src/models/fusion.py) so both branches use identical vision
+    encoding.
+
+    Returns:
+        features: the convolutional feature extractor
+        in_features: output embedding dimension (needed to size classifier heads)
+    """
+    weights = DenseNet121_Weights.IMAGENET1K_V1 if pretrained else None
+    backbone = densenet121(weights=weights)
+    return backbone.features, backbone.classifier.in_features
+
+
 class ChestXrayVisionModel(nn.Module):
     """DenseNet-121 backbone with a multi-label classification head.
 
@@ -19,12 +34,7 @@ class ChestXrayVisionModel(nn.Module):
     def __init__(self, num_classes: int, pretrained: bool = True, dropout: float = 0.2):
         super().__init__()
 
-        weights = DenseNet121_Weights.IMAGENET1K_V1 if pretrained else None
-        backbone = densenet121(weights=weights)
-
-        # DenseNet-121's feature extractor (everything except the classifier)
-        self.features = backbone.features
-        in_features = backbone.classifier.in_features
+        self.features, in_features = build_densenet_backbone(pretrained)
 
         self.classifier = nn.Sequential(
             nn.ReLU(inplace=True),
