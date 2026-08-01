@@ -85,6 +85,20 @@ python src/explain/generate_counterfactual_examples.py --checkpoint checkpoints/
 
 <!-- 🖼️ A couple of real counterfactual side-by-side figures go here once generated -->
 
+## Dashboard
+
+The Streamlit dashboard (`dashboard/app.py`) ties everything together: upload an X-ray, see per-class probabilities, a Grad-CAM heatmap for the top prediction, and the occlusion-based counterfactual comparison, all in one view.
+
+```bash
+streamlit run dashboard/app.py
+```
+
+It runs out of the box even before training — if no checkpoint is found at `checkpoints/vision_baseline/best_model.pth`, it falls back to a randomly-initialized model with a clearly visible warning banner, so the UI is explorable immediately. Once you've trained the vision baseline, predictions become meaningful automatically — no code changes needed.
+
+<!-- 🖼️ Dashboard screenshot/GIF goes here once you have a trained model to demo -->
+
+**Deploying a live demo:** push this repo to a [Hugging Face Space](https://huggingface.co/new-space) (choose the Streamlit SDK) or connect it on [Streamlit Community Cloud](https://streamlit.io/cloud) — both work with `dashboard/app.py` and `requirements.txt` unmodified. Link the live demo at the top of this README once deployed.
+
 ## Usage
 
 ```bash
@@ -107,7 +121,7 @@ python src/train_fusion.py --data-config configs/data.yaml --train-config config
 # 6. Evaluate the fusion model and generate its results table
 python src/evaluate_fusion.py --checkpoint checkpoints/fusion/best_model.pth
 
-# 7. (coming next) Launch dashboard
+# 7. Launch the dashboard
 streamlit run dashboard/app.py
 ```
 
@@ -126,7 +140,7 @@ pytest tests/ -v
 - [x] Tabular fusion model
 - [x] Grad-CAM explainability module
 - [x] Occlusion-based counterfactual explainer
-- [ ] Streamlit dashboard
+- [x] Streamlit dashboard
 - [ ] Deploy live demo (Hugging Face Spaces)
 
 ## Results
