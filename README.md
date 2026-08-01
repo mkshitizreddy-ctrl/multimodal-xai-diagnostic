@@ -66,6 +66,17 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Explainability
+
+Every prediction is paired with a **Grad-CAM heatmap** (`src/explain/gradcam.py`) showing which image regions drove the model's decision — built with [`pytorch-grad-cam`](https://github.com/jacobgil/pytorch-grad-cam), hooked into DenseNet-121's final dense block.
+
+```bash
+# Generate example Grad-CAM overlays from the test set
+python src/explain/generate_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth
+```
+
+<!-- 🖼️ A couple of real Grad-CAM example images go here once generated from a trained model -->
+
 ## Usage
 
 ```bash
@@ -99,7 +110,7 @@ pytest tests/ -v
 - [x] Data download + preprocessing pipeline
 - [x] Vision baseline (DenseNet-121)
 - [ ] Tabular fusion model
-- [ ] Grad-CAM explainability module
+- [x] Grad-CAM explainability module
 - [ ] Occlusion-based counterfactual explainer
 - [ ] Streamlit dashboard
 - [ ] Deploy live demo (Hugging Face Spaces)
