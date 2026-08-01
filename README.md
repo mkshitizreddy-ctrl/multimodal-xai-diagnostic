@@ -68,23 +68,30 @@ pip install -r requirements.txt
 
 ## Usage
 
-*(Filled in as each module lands — see Roadmap.)*
-
 ```bash
-# Download & preprocess data
+# 1. Download the NIH Chest X-ray14 dataset (requires a Kaggle API token — see
+#    data/scripts/download_nih.py for one-time setup instructions)
 python data/scripts/download_nih.py
 
-# Train baseline vision model
+# 2. Build clean, patient-level train/val/test splits
+python data/scripts/preprocess.py --config configs/data.yaml
+
+# 3. (coming next) Train baseline vision model
 python src/train.py --config configs/vision_baseline.yaml
 
-# Launch dashboard
+# 4. (coming next) Launch dashboard
 streamlit run dashboard/app.py
+```
+
+Run the test suite with:
+```bash
+pytest tests/ -v
 ```
 
 ## Roadmap
 
 - [x] Repo scaffold, license, dependencies
-- [ ] Data download + preprocessing pipeline
+- [x] Data download + preprocessing pipeline
 - [ ] Vision baseline (DenseNet-121)
 - [ ] Tabular fusion model
 - [ ] Grad-CAM explainability module
