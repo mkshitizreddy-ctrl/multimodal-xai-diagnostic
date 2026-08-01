@@ -6,6 +6,20 @@ build phase they correspond to.
 ## [Unreleased]
 - Deploy live demo to Hugging Face Spaces
 
+## v0.8 — Dataset pivot to Chest X-ray Pneumonia
+- Switched primary dataset from NIH Chest X-ray14 (~45GB, 14-class) to Kaggle
+  Chest X-ray Pneumonia (~2GB, binary) to fit local disk/compute constraints
+- `data/scripts/prepare_pneumonia_dataset.py`: downloads images, builds
+  patient-grouped train/val splits (test split preserved from source),
+  generates synthetic clinical vitals (age, gender, temperature, SpO2)
+  correlated with the Pneumonia label to keep the fusion architecture
+  genuinely meaningful — clearly disclosed as synthetic throughout the docs
+- `configs/data.yaml` updated for the new dataset; original NIH config
+  preserved at `configs/data_nih_legacy.yaml` for reference
+- No changes required to `src/data/dataset.py`, model code, training loops,
+  or explainability modules — validates the original generic design
+- Updated ethics statement, architecture doc, and README for the pivot
+
 ## v0.7 — Dashboard
 - Streamlit dashboard: upload → probabilities → Grad-CAM → counterfactual
 - Demo mode fallback when no trained checkpoint is present
