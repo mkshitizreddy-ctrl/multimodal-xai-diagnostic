@@ -56,9 +56,10 @@ def main():
         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
         image_dir=train_cfg["data"]["image_dir"],
         classes=classes,
-        tabular_features=data_cfg["tabular_features"],
+        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
         image_size=train_cfg["data"]["image_size"],
         train=False,
+        tabular_stats=checkpoint.get("tabular_stats"),
     )
 
     output_dir = Path(args.output_dir)

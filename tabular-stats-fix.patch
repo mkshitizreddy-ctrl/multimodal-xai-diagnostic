@@ -1,0 +1,295 @@
+diff --git a/src/data/dataset.py b/src/data/dataset.py
+index 2bd9d57..a418939 100644
+--- a/src/data/dataset.py
++++ b/src/data/dataset.py
+@@ -26,6 +26,7 @@ class ChestXrayDataset(Dataset):
+         tabular_features: list[str],
+         image_size: int = 224,
+         train: bool = False,
++        tabular_stats: dict | None = None,
+     ):
+         self.df = pd.read_csv(csv_path).reset_index(drop=True)
+         self.image_dir = Path(image_dir)
+@@ -33,14 +34,27 @@ class ChestXrayDataset(Dataset):
+         self.tabular_features = tabular_features
+         self.train = train
+ 
+-        # Precompute normalization stats for tabular features (fit on this split)
+-        self._fit_tabular_normalizers()
++        # Tabular normalization stats (numeric means/stds + categorical
++        # vocab) must be fit ONCE on the training split and reused
++        # everywhere else. Fitting them independently per split would let
++        # val/test stats leak in and, worse, could map the same category
++        # (e.g. "AP"/"PA") to a different integer on each split. Pass in
++        # the training split's stats (e.g. from `get_tabular_stats()`, or
++        # a checkpoint's saved `tabular_stats`) for val/test/inference
++        # datasets; leave it None only for the split you want to fit on.
++        if tabular_stats is not None:
++            self.tabular_means = dict(tabular_stats.get("means", {}))
++            self.tabular_stds = dict(tabular_stats.get("stds", {}))
++            self.tabular_vocab = dict(tabular_stats.get("vocab", {}))
++        else:
++            self._fit_tabular_normalizers()
+ 
+         self.transform = self._build_transform(image_size, train)
+ 
+     def _fit_tabular_normalizers(self) -> None:
+         self.tabular_means = {}
+         self.tabular_stds = {}
++        self.tabular_vocab = {}
+         for col in self.tabular_features:
+             if pd.api.types.is_numeric_dtype(self.df[col]):
+                 self.tabular_means[col] = self.df[col].mean()
+@@ -48,9 +62,18 @@ class ChestXrayDataset(Dataset):
+             else:
+                 # Categorical -> map to a stable integer vocabulary
+                 categories = sorted(self.df[col].astype(str).unique())
+-                self.tabular_vocab = getattr(self, "tabular_vocab", {})
+                 self.tabular_vocab[col] = {c: i for i, c in enumerate(categories)}
+ 
++    def get_tabular_stats(self) -> dict:
++        """Returns this dataset's fitted tabular normalization stats, so
++        they can be reused (not refit) by val/test/inference datasets and
++        persisted in a training checkpoint."""
++        return {
++            "means": dict(self.tabular_means),
++            "stds": dict(self.tabular_stds),
++            "vocab": dict(self.tabular_vocab),
++        }
++
+     @staticmethod
+     def _build_transform(image_size: int, train: bool) -> transforms.Compose:
+         aug = []
+diff --git a/src/evaluate.py b/src/evaluate.py
+index b854b74..b01787a 100644
+--- a/src/evaluate.py
++++ b/src/evaluate.py
+@@ -46,9 +46,10 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
+         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
+         image_dir=train_cfg["data"]["image_dir"],
+         classes=classes,
+-        tabular_features=data_cfg["tabular_features"],
++        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
+         image_size=train_cfg["data"]["image_size"],
+         train=False,
++        tabular_stats=checkpoint.get("tabular_stats"),
+     )
+     test_loader = DataLoader(
+         test_ds, batch_size=train_cfg["train"]["batch_size"], shuffle=False
+diff --git a/src/evaluate_fusion.py b/src/evaluate_fusion.py
+index b766b5f..f853ef0 100644
+--- a/src/evaluate_fusion.py
++++ b/src/evaluate_fusion.py
+@@ -47,6 +47,7 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
+         tabular_features=tabular_features,
+         image_size=train_cfg["data"]["image_size"],
+         train=False,
++        tabular_stats=checkpoint.get("tabular_stats"),
+     )
+     test_loader = DataLoader(test_ds, batch_size=train_cfg["train"]["batch_size"], shuffle=False)
+ 
+diff --git a/src/explain/generate_counterfactual_examples.py b/src/explain/generate_counterfactual_examples.py
+index 7b5e259..202ade8 100644
+--- a/src/explain/generate_counterfactual_examples.py
++++ b/src/explain/generate_counterfactual_examples.py
+@@ -56,9 +56,10 @@ def main():
+         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
+         image_dir=train_cfg["data"]["image_dir"],
+         classes=classes,
+-        tabular_features=data_cfg["tabular_features"],
++        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
+         image_size=train_cfg["data"]["image_size"],
+         train=False,
++        tabular_stats=checkpoint.get("tabular_stats"),
+     )
+ 
+     output_dir = Path(args.output_dir)
+diff --git a/src/explain/generate_examples.py b/src/explain/generate_examples.py
+index fd84086..c49fd6e 100644
+--- a/src/explain/generate_examples.py
++++ b/src/explain/generate_examples.py
+@@ -52,9 +52,10 @@ def main():
+         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
+         image_dir=train_cfg["data"]["image_dir"],
+         classes=classes,
+-        tabular_features=data_cfg["tabular_features"],
++        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
+         image_size=train_cfg["data"]["image_size"],
+         train=False,
++        tabular_stats=checkpoint.get("tabular_stats"),
+     )
+ 
+     output_dir = Path(args.output_dir)
+diff --git a/src/train.py b/src/train.py
+index de54eac..c4ec729 100644
+--- a/src/train.py
++++ b/src/train.py
+@@ -42,6 +42,11 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
+         image_size=image_size,
+         train=True,
+     )
++    # Reuse the train split's tabular normalization stats (age mean/std,
++    # categorical vocab) for val — fitting them independently per split
++    # would leak val statistics in and could map the same category to a
++    # different integer across splits. See ChestXrayDataset.tabular_stats.
++    tabular_stats = train_ds.get_tabular_stats()
+     val_ds = ChestXrayDataset(
+         csv_path=train_cfg["data"]["val_csv"],
+         image_dir=image_dir,
+@@ -49,6 +54,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
+         tabular_features=tabular_features,
+         image_size=image_size,
+         train=False,
++        tabular_stats=tabular_stats,
+     )
+ 
+     train_loader = DataLoader(
+@@ -65,7 +71,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
+         num_workers=train_cfg["train"]["num_workers"],
+         pin_memory=True,
+     )
+-    return train_loader, val_loader, classes
++    return train_loader, val_loader, classes, tabular_stats
+ 
+ 
+ def compute_macro_auroc(y_true, y_pred, classes) -> tuple[float, dict]:
+@@ -138,7 +144,7 @@ def main():
+     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+     print(f"Using device: {device}")
+ 
+-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
++    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
+ 
+     model = ChestXrayVisionModel(
+         num_classes=len(classes),
+@@ -189,7 +195,13 @@ def main():
+             best_metric = current_metric
+             epochs_without_improvement = 0
+             torch.save(
+-                {"model_state_dict": model.state_dict(), "classes": classes, "epoch": epoch},
++                {
++                    "model_state_dict": model.state_dict(),
++                    "classes": classes,
++                    "tabular_features": data_cfg["tabular_features"],
++                    "tabular_stats": tabular_stats,
++                    "epoch": epoch,
++                },
+                 checkpoint_dir / "best_model.pth",
+             )
+             print(f"  -> new best model saved (val_macro_auroc={best_metric:.4f})")
+diff --git a/src/train_fusion.py b/src/train_fusion.py
+index 3ceb097..f794a50 100644
+--- a/src/train_fusion.py
++++ b/src/train_fusion.py
+@@ -83,7 +83,7 @@ def main():
+     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+     print(f"Using device: {device}")
+ 
+-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
++    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
+     num_tabular_features = len(data_cfg["tabular_features"])
+ 
+     model = ChestXrayFusionModel(
+@@ -141,6 +141,7 @@ def main():
+                     "model_state_dict": model.state_dict(),
+                     "classes": classes,
+                     "tabular_features": data_cfg["tabular_features"],
++                    "tabular_stats": tabular_stats,
+                     "epoch": epoch,
+                 },
+                 checkpoint_dir / "best_model.pth",
+diff --git a/tests/test_dataset.py b/tests/test_dataset.py
+index a3bb5d6..0963362 100644
+--- a/tests/test_dataset.py
++++ b/tests/test_dataset.py
+@@ -74,3 +74,90 @@ def test_categorical_tabular_encoding_is_stable(synthetic_dataset):
+     _, tabular_a, _ = synthetic_dataset[0]
+     _, tabular_b, _ = synthetic_dataset[0]
+     assert tabular_a.tolist() == tabular_b.tolist()
++
++
++def _make_csv(tmp_path, name, rows):
++    csv_path = tmp_path / name
++    pd.DataFrame(rows).to_csv(csv_path, index=False)
++    return csv_path
++
++
++def test_tabular_stats_can_be_reused_across_splits(tmp_path):
++    """Regression test: normalization stats and the categorical vocab must
++    be fittable once (e.g. on train) and reused as-is by another split,
++    rather than each split silently refitting its own stats — which would
++    let val/test statistics leak in and could map the same category to a
++    different integer across splits."""
++    image_dir = tmp_path / "images"
++    image_dir.mkdir()
++    for i in range(4):
++        Image.fromarray((np.random.rand(32, 32) * 255).astype(np.uint8)).save(
++            image_dir / f"img_{i}.png"
++        )
++
++    # Train split: ages 40-43, both genders present.
++    train_csv = _make_csv(
++        tmp_path,
++        "train.csv",
++        [
++            {
++                "Image Index": f"img_{i}.png",
++                "Patient Age": 40 + i,
++                "Patient Gender": "Male" if i % 2 == 0 else "Female",
++                "Atelectasis": 0,
++                "Cardiomegaly": 0,
++            }
++            for i in range(4)
++        ],
++    )
++    # "Val" split reuses the same 4 images but with a very different age
++    # range and, critically, only ONE gender present — if vocab/stats were
++    # refit here instead of reused, "Male" could map to a different index
++    # than it did on train, and age normalization would shift.
++    val_csv = _make_csv(
++        tmp_path,
++        "val.csv",
++        [
++            {
++                "Image Index": f"img_{i}.png",
++                "Patient Age": 90,
++                "Patient Gender": "Male",
++                "Atelectasis": 0,
++                "Cardiomegaly": 0,
++            }
++            for i in range(4)
++        ],
++    )
++
++    train_ds = ChestXrayDataset(
++        csv_path=str(train_csv),
++        image_dir=str(image_dir),
++        classes=CLASSES,
++        tabular_features=TABULAR_FEATURES,
++        image_size=32,
++        train=True,
++    )
++    stats = train_ds.get_tabular_stats()
++
++    val_ds = ChestXrayDataset(
++        csv_path=str(val_csv),
++        image_dir=str(image_dir),
++        classes=CLASSES,
++        tabular_features=TABULAR_FEATURES,
++        image_size=32,
++        train=False,
++        tabular_stats=stats,
++    )
++
++    # The val dataset must use the train split's fitted means/stds/vocab
++    # verbatim, not values fit from its own (very different) data.
++    assert val_ds.tabular_means == train_ds.tabular_means
++    assert val_ds.tabular_stds == train_ds.tabular_stds
++    assert val_ds.tabular_vocab == train_ds.tabular_vocab
++
++    # "Male" must resolve to the same integer code that train fit for it.
++    gender_col = "Patient Gender"
++    _, train_tabular, _ = train_ds[0]  # Male, age 40
++    _, val_tabular, _ = val_ds[0]  # Male, age 90
++    gender_feature_idx = TABULAR_FEATURES.index(gender_col)
++    assert train_tabular[gender_feature_idx].item() == val_tabular[gender_feature_idx].item()

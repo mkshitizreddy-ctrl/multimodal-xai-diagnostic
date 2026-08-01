@@ -26,6 +26,7 @@ class ChestXrayDataset(Dataset):
         tabular_features: list[str],
         image_size: int = 224,
         train: bool = False,
+        tabular_stats: dict | None = None,
     ):
         self.df = pd.read_csv(csv_path).reset_index(drop=True)
         self.image_dir = Path(image_dir)
@@ -33,14 +34,27 @@ class ChestXrayDataset(Dataset):
         self.tabular_features = tabular_features
         self.train = train
 
-        # Precompute normalization stats for tabular features (fit on this split)
-        self._fit_tabular_normalizers()
+        # Tabular normalization stats (numeric means/stds + categorical
+        # vocab) must be fit ONCE on the training split and reused
+        # everywhere else. Fitting them independently per split would let
+        # val/test stats leak in and, worse, could map the same category
+        # (e.g. "AP"/"PA") to a different integer on each split. Pass in
+        # the training split's stats (e.g. from `get_tabular_stats()`, or
+        # a checkpoint's saved `tabular_stats`) for val/test/inference
+        # datasets; leave it None only for the split you want to fit on.
+        if tabular_stats is not None:
+            self.tabular_means = dict(tabular_stats.get("means", {}))
+            self.tabular_stds = dict(tabular_stats.get("stds", {}))
+            self.tabular_vocab = dict(tabular_stats.get("vocab", {}))
+        else:
+            self._fit_tabular_normalizers()
 
         self.transform = self._build_transform(image_size, train)
 
     def _fit_tabular_normalizers(self) -> None:
         self.tabular_means = {}
         self.tabular_stds = {}
+        self.tabular_vocab = {}
         for col in self.tabular_features:
             if pd.api.types.is_numeric_dtype(self.df[col]):
                 self.tabular_means[col] = self.df[col].mean()
@@ -48,8 +62,17 @@ class ChestXrayDataset(Dataset):
             else:
                 # Categorical -> map to a stable integer vocabulary
                 categories = sorted(self.df[col].astype(str).unique())
-                self.tabular_vocab = getattr(self, "tabular_vocab", {})
                 self.tabular_vocab[col] = {c: i for i, c in enumerate(categories)}
+
+    def get_tabular_stats(self) -> dict:
+        """Returns this dataset's fitted tabular normalization stats, so
+        they can be reused (not refit) by val/test/inference datasets and
+        persisted in a training checkpoint."""
+        return {
+            "means": dict(self.tabular_means),
+            "stds": dict(self.tabular_stds),
+            "vocab": dict(self.tabular_vocab),
+        }
 
     @staticmethod
     def _build_transform(image_size: int, train: bool) -> transforms.Compose:

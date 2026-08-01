@@ -83,7 +83,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
+    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
     num_tabular_features = len(data_cfg["tabular_features"])
 
     model = ChestXrayFusionModel(
@@ -141,6 +141,7 @@ def main():
                     "model_state_dict": model.state_dict(),
                     "classes": classes,
                     "tabular_features": data_cfg["tabular_features"],
+                    "tabular_stats": tabular_stats,
                     "epoch": epoch,
                 },
                 checkpoint_dir / "best_model.pth",

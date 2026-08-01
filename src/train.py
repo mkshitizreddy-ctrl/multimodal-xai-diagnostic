@@ -42,6 +42,11 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         image_size=image_size,
         train=True,
     )
+    # Reuse the train split's tabular normalization stats (age mean/std,
+    # categorical vocab) for val — fitting them independently per split
+    # would leak val statistics in and could map the same category to a
+    # different integer across splits. See ChestXrayDataset.tabular_stats.
+    tabular_stats = train_ds.get_tabular_stats()
     val_ds = ChestXrayDataset(
         csv_path=train_cfg["data"]["val_csv"],
         image_dir=image_dir,
@@ -49,6 +54,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         tabular_features=tabular_features,
         image_size=image_size,
         train=False,
+        tabular_stats=tabular_stats,
     )
 
     train_loader = DataLoader(
@@ -65,7 +71,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         num_workers=train_cfg["train"]["num_workers"],
         pin_memory=True,
     )
-    return train_loader, val_loader, classes
+    return train_loader, val_loader, classes, tabular_stats
 
 
 def compute_macro_auroc(y_true, y_pred, classes) -> tuple[float, dict]:
@@ -138,7 +144,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
+    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
 
     model = ChestXrayVisionModel(
         num_classes=len(classes),
@@ -189,7 +195,13 @@ def main():
             best_metric = current_metric
             epochs_without_improvement = 0
             torch.save(
-                {"model_state_dict": model.state_dict(), "classes": classes, "epoch": epoch},
+                {
+                    "model_state_dict": model.state_dict(),
+                    "classes": classes,
+                    "tabular_features": data_cfg["tabular_features"],
+                    "tabular_stats": tabular_stats,
+                    "epoch": epoch,
+                },
                 checkpoint_dir / "best_model.pth",
             )
             print(f"  -> new best model saved (val_macro_auroc={best_metric:.4f})")
