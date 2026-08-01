@@ -77,6 +77,14 @@ python src/explain/generate_examples.py --checkpoint checkpoints/vision_baseline
 
 <!-- 🖼️ A couple of real Grad-CAM example images go here once generated from a trained model -->
 
+**Counterfactual explanations** (`src/explain/counterfactual.py`) go a step further: the highest-activation region from Grad-CAM is inpainted out of the image, and the model is re-run on the result. A large confidence drop after removing that region is evidence the model's stated reasoning actually matches what's driving its prediction.
+
+```bash
+python src/explain/generate_counterfactual_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth
+```
+
+<!-- 🖼️ A couple of real counterfactual side-by-side figures go here once generated -->
+
 ## Usage
 
 ```bash
@@ -111,7 +119,7 @@ pytest tests/ -v
 - [x] Vision baseline (DenseNet-121)
 - [ ] Tabular fusion model
 - [x] Grad-CAM explainability module
-- [ ] Occlusion-based counterfactual explainer
+- [x] Occlusion-based counterfactual explainer
 - [ ] Streamlit dashboard
 - [ ] Deploy live demo (Hugging Face Spaces)
 
