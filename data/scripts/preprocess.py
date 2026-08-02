@@ -18,6 +18,13 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+
+# See src/data/dataset.py for details — avoids a pyarrow arrow.dll crash
+# observed on some Windows setups with pandas >= 3.0's default string dtype.
+try:
+    pd.options.future.infer_string = False
+except AttributeError:
+    pass
 import yaml
 from sklearn.model_selection import train_test_split
 

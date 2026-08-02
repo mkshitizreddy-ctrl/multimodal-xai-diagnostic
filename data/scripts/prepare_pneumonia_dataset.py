@@ -31,6 +31,13 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+# See src/data/dataset.py for details — avoids a pyarrow arrow.dll crash
+# observed on some Windows setups with pandas >= 3.0's default string dtype.
+try:
+    pd.options.future.infer_string = False
+except AttributeError:
+    pass
+
 RAW_IMAGES_DIR = Path("data/raw/images")
 PROCESSED_DIR = Path("data/processed")
 RANDOM_SEED = 42
