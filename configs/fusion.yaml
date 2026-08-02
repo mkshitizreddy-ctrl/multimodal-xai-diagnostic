@@ -20,8 +20,8 @@ train:
   batch_size: 32
   num_workers: 4
   pin_memory: false   # avoids a known Windows+CUDA access-violation crash; set true if your setup handles it
-  lr: 1e-4
-  weight_decay: 1e-5
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
   optimizer: "adamw"
   lr_scheduler: "cosine"
   early_stopping_patience: 4
