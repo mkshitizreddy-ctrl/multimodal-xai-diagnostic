@@ -165,8 +165,13 @@ def main():
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=train_cfg["train"]["lr"],
-        weight_decay=train_cfg["train"]["weight_decay"],
+        # float() guards against a classic PyYAML gotcha: scientific
+        # notation like "1e-4" (no decimal point) is parsed as a STRING,
+        # not a float, unless written as "1.0e-4". Casting here means a
+        # future config edit that reintroduces this can't silently crash
+        # training with a confusing TypeError deep inside torch.optim.
+        lr=float(train_cfg["train"]["lr"]),
+        weight_decay=float(train_cfg["train"]["weight_decay"]),
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=train_cfg["train"]["epochs"]

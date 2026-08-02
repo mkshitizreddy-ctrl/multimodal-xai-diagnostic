@@ -97,8 +97,9 @@ def main():
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=train_cfg["train"]["lr"],
-        weight_decay=train_cfg["train"]["weight_decay"],
+        # See src/train.py — guards against PyYAML parsing "1e-4" as a string.
+        lr=float(train_cfg["train"]["lr"]),
+        weight_decay=float(train_cfg["train"]["weight_decay"]),
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=train_cfg["train"]["epochs"]
