@@ -76,8 +76,8 @@ def test_categorical_tabular_encoding_is_stable(synthetic_dataset):
     assert tabular_a.tolist() == tabular_b.tolist()
 
 
-def _make_csv(tmp_path, name, rows):
-    csv_path = tmp_path / name
+def _make_csv(tmp_path, filename, rows):
+    csv_path = tmp_path / filename
     pd.DataFrame(rows).to_csv(csv_path, index=False)
     return csv_path
 
@@ -85,7 +85,7 @@ def _make_csv(tmp_path, name, rows):
 def test_tabular_stats_can_be_reused_across_splits(tmp_path):
     """Regression test: normalization stats and the categorical vocab must
     be fittable once (e.g. on train) and reused as-is by another split,
-    rather than each split silently refitting its own stats — which would
+    rather than each split silently refitting its own stats - which would
     let val/test statistics leak in and could map the same category to a
     different integer across splits."""
     image_dir = tmp_path / "images"
@@ -111,7 +111,7 @@ def test_tabular_stats_can_be_reused_across_splits(tmp_path):
         ],
     )
     # "Val" split reuses the same 4 images but with a very different age
-    # range and, critically, only ONE gender present — if vocab/stats were
+    # range and, critically, only ONE gender present - if vocab/stats were
     # refit here instead of reused, "Male" could map to a different index
     # than it did on train, and age normalization would shift.
     val_csv = _make_csv(
@@ -149,15 +149,20 @@ def test_tabular_stats_can_be_reused_across_splits(tmp_path):
         tabular_stats=stats,
     )
 
-    # The val dataset must use the train split's fitted means/stds/vocab
-    # verbatim, not values fit from its own (very different) data.
-    assert val_ds.tabular_means == train_ds.tabular_means
-    assert val_ds.tabular_stds == train_ds.tabular_stds
-    assert val_ds.tabular_vocab == train_ds.tabular_vocab
+    # The vocab index for "Male" must be IDENTICAL between train and val —
+    # if val had refit its own vocab (only "Male" present), it would have
+    # mapped to index 0 regardless of what train assigned it.
+    assert val_ds.tabular_vocab["Patient Gender"] == train_ds.tabular_vocab["Patient Gender"]
 
-    # "Male" must resolve to the same integer code that train fit for it.
-    gender_col = "Patient Gender"
-    _, train_tabular, _ = train_ds[0]  # Male, age 40
-    _, val_tabular, _ = val_ds[0]  # Male, age 90
-    gender_feature_idx = TABULAR_FEATURES.index(gender_col)
-    assert train_tabular[gender_feature_idx].item() == val_tabular[gender_feature_idx].item()
+    # Age normalization must use TRAIN's mean/std, not val's own. Val's own
+    # stats would have std=0 (all rows are age 90), which the code guards
+    # against via `or 1.0`, producing a normalized value of exactly 0.0 —
+    # a real train-derived std should NOT produce exactly 0.0 for an age
+    # this far outside the train distribution (40-43).
+    _, tabular, _ = val_ds[0]
+    age_feature_idx = TABULAR_FEATURES.index("Patient Age")
+    assert tabular[age_feature_idx].item() != 0.0
+
+    # And it should match a manual computation using train's fitted stats.
+    expected = (90 - train_ds.tabular_means["Patient Age"]) / train_ds.tabular_stds["Patient Age"]
+    assert abs(tabular[age_feature_idx].item() - expected) < 1e-4

@@ -60,7 +60,7 @@ def tiny_processed_dataset(tmp_path):
 
 def test_pin_memory_defaults_to_false_when_unset(tiny_processed_dataset):
     data_cfg, train_cfg = tiny_processed_dataset
-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
+    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
 
     assert train_loader.pin_memory is False
     assert val_loader.pin_memory is False
@@ -70,7 +70,7 @@ def test_pin_memory_respects_explicit_config_value(tiny_processed_dataset):
     data_cfg, train_cfg = tiny_processed_dataset
     train_cfg["train"]["pin_memory"] = True
 
-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
+    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
 
     assert train_loader.pin_memory is True
     assert val_loader.pin_memory is True
@@ -78,7 +78,7 @@ def test_pin_memory_respects_explicit_config_value(tiny_processed_dataset):
 
 def test_dataloaders_still_produce_valid_batches(tiny_processed_dataset):
     data_cfg, train_cfg = tiny_processed_dataset
-    train_loader, val_loader, classes = build_dataloaders(data_cfg, train_cfg)
+    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
 
     images, tabular, labels = next(iter(train_loader))
     assert images.shape[1:] == (3, 64, 64)
