@@ -85,3 +85,24 @@ def test_dataloaders_still_produce_valid_batches(tiny_processed_dataset):
     assert tabular.shape[1] == len(TABULAR_FEATURES)
     assert labels.shape[1] == len(CLASSES)
     assert classes == CLASSES
+
+
+def test_configs_use_yaml_safe_scientific_notation():
+    """Regression test for a real crash: PyYAML's safe_load parses
+    scientific notation WITHOUT a decimal point (e.g. "1e-4") as a string,
+    not a float — only "1.0e-4" round-trips as a float. This silently
+    crashed AdamW's constructor with a TypeError deep in torch internals.
+    Locks in that both training configs use the safe format."""
+    import yaml
+
+    for config_path in ["configs/vision_baseline.yaml", "configs/fusion.yaml"]:
+        full_path = Path(__file__).resolve().parents[1] / config_path
+        cfg = yaml.safe_load(full_path.read_text())
+        assert isinstance(cfg["train"]["lr"], float), (
+            f"{config_path}: train.lr parsed as {type(cfg['train']['lr'])}, "
+            "not float — check for scientific notation missing a decimal point"
+        )
+        assert isinstance(cfg["train"]["weight_decay"], float), (
+            f"{config_path}: train.weight_decay parsed as "
+            f"{type(cfg['train']['weight_decay'])}, not float"
+        )
