@@ -37,30 +37,60 @@ class ChestXrayDataset(Dataset):
         tabular_features: list[str],
         image_size: int = 224,
         train: bool = False,
+        tabular_stats: dict | None = None,
     ):
+        """
+        Args:
+            tabular_stats: previously-fitted normalization stats (from
+                get_tabular_stats() on another split — normally the train
+                split). When provided, this dataset REUSES those stats
+                instead of fitting its own. This matters: fitting
+                separately per split means age normalization and the
+                categorical vocabulary (e.g. which integer "Male" maps to)
+                could differ between train/val/test, silently corrupting
+                results. Always fit once on train and pass the result to
+                val/test — see src/train.py's build_dataloaders() and
+                src/evaluate.py for the reference usage pattern.
+        """
         self.df = pd.read_csv(csv_path).reset_index(drop=True)
         self.image_dir = Path(image_dir)
         self.classes = classes
         self.tabular_features = tabular_features
         self.train = train
 
-        # Precompute normalization stats for tabular features (fit on this split)
-        self._fit_tabular_normalizers()
+        if tabular_stats is not None:
+            self._load_tabular_stats(tabular_stats)
+        else:
+            self._fit_tabular_normalizers()
 
         self.transform = self._build_transform(image_size, train)
 
     def _fit_tabular_normalizers(self) -> None:
         self.tabular_means = {}
         self.tabular_stds = {}
+        self.tabular_vocab = {}
         for col in self.tabular_features:
             if pd.api.types.is_numeric_dtype(self.df[col]):
-                self.tabular_means[col] = self.df[col].mean()
-                self.tabular_stds[col] = self.df[col].std() or 1.0
+                self.tabular_means[col] = float(self.df[col].mean())
+                self.tabular_stds[col] = float(self.df[col].std() or 1.0)
             else:
                 # Categorical -> map to a stable integer vocabulary
                 categories = sorted(self.df[col].astype(str).unique())
-                self.tabular_vocab = getattr(self, "tabular_vocab", {})
                 self.tabular_vocab[col] = {c: i for i, c in enumerate(categories)}
+
+    def _load_tabular_stats(self, stats: dict) -> None:
+        self.tabular_means = dict(stats["tabular_means"])
+        self.tabular_stds = dict(stats["tabular_stds"])
+        self.tabular_vocab = {k: dict(v) for k, v in stats["tabular_vocab"].items()}
+
+    def get_tabular_stats(self) -> dict:
+        """Returns this dataset's fitted (or reused) normalization stats,
+        for passing into another split's constructor via tabular_stats=."""
+        return {
+            "tabular_means": dict(self.tabular_means),
+            "tabular_stds": dict(self.tabular_stds),
+            "tabular_vocab": {k: dict(v) for k, v in self.tabular_vocab.items()},
+        }
 
     @staticmethod
     def _build_transform(image_size: int, train: bool) -> transforms.Compose:
