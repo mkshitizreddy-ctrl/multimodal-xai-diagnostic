@@ -37,6 +37,18 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
     classes = checkpoint["classes"]
+    # Reuse the exact normalization stats/vocab fit on train during training
+    # (falls back to None -> refit if loading an older checkpoint saved
+    # before this fix, with a warning, since correctness matters more than
+    # silent success here).
+    tabular_stats = checkpoint.get("tabular_stats")
+    if tabular_stats is None:
+        print(
+            "WARNING: checkpoint has no saved tabular_stats (trained with an "
+            "older version of train.py) — test set will fit its own "
+            "normalization stats, which may not exactly match what the "
+            "model was trained on. Retrain to fix this properly."
+        )
 
     model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False)
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -46,10 +58,10 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
         image_dir=train_cfg["data"]["image_dir"],
         classes=classes,
-        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
+        tabular_features=data_cfg["tabular_features"],
         image_size=train_cfg["data"]["image_size"],
         train=False,
-        tabular_stats=checkpoint.get("tabular_stats"),
+        tabular_stats=tabular_stats,
     )
     test_loader = DataLoader(
         test_ds, batch_size=train_cfg["train"]["batch_size"], shuffle=False

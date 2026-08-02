@@ -31,6 +31,14 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
     checkpoint = torch.load(checkpoint_path, map_location=device)
     classes = checkpoint["classes"]
     tabular_features = checkpoint["tabular_features"]
+    tabular_stats = checkpoint.get("tabular_stats")
+    if tabular_stats is None:
+        print(
+            "WARNING: checkpoint has no saved tabular_stats (trained with an "
+            "older version of train_fusion.py) — test set will fit its own "
+            "normalization stats, which may not exactly match what the "
+            "model was trained on. Retrain to fix this properly."
+        )
 
     model = ChestXrayFusionModel(
         num_classes=len(classes),
@@ -47,7 +55,7 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
         tabular_features=tabular_features,
         image_size=train_cfg["data"]["image_size"],
         train=False,
-        tabular_stats=checkpoint.get("tabular_stats"),
+        tabular_stats=tabular_stats,
     )
     test_loader = DataLoader(test_ds, batch_size=train_cfg["train"]["batch_size"], shuffle=False)
 
