@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import cv2
+import numpy as np
 import torch
 import yaml
 
@@ -29,6 +30,40 @@ def load_config(path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def select_example_indices(
+    model, test_ds, device, num_examples: int, strategy: str, seed: int = 42
+) -> list[int]:
+    """
+    strategy="random": a representative, unbiased sample across the whole
+        test set. The dataset script lists all Pneumonia-positive rows
+        before Normal rows, so taking the first N (the old behavior) always
+        picked the same class — this fixes that.
+    strategy="borderline": picks the N test examples whose predicted
+        probability is CLOSEST to the 0.5 decision boundary. Confident
+        predictions (e.g. 0.999) rarely flip under occlusion regardless of
+        method quality; borderline cases are where masking the
+        highest-activation region is most likely to demonstrably change the
+        decision, making for a much more informative demo figure.
+    """
+    if strategy == "random":
+        rng = np.random.default_rng(seed)
+        indices = rng.choice(len(test_ds), size=min(num_examples, len(test_ds)), replace=False)
+        return indices.tolist()
+
+    if strategy == "borderline":
+        probs = []
+        with torch.no_grad():
+            for i in range(len(test_ds)):
+                image, _tabular, _labels = test_ds[i]
+                logits = model(image.unsqueeze(0).to(device))
+                prob = torch.sigmoid(logits)[0, 0].item()
+                probs.append((i, abs(prob - 0.5)))
+        probs.sort(key=lambda x: x[1])
+        return [i for i, _ in probs[:num_examples]]
+
+    raise ValueError(f"Unknown strategy: {strategy}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
@@ -36,6 +71,13 @@ def main():
     parser.add_argument("--train-config", default="configs/vision_baseline.yaml")
     parser.add_argument("--num-examples", type=int, default=6)
     parser.add_argument("--threshold", type=float, default=0.6)
+    parser.add_argument(
+        "--strategy",
+        choices=["random", "borderline"],
+        default="random",
+        help="'random' for a representative sample; 'borderline' to specifically "
+        "showcase examples near the decision boundary, where flips are most likely.",
+    )
     parser.add_argument("--output-dir", default="docs/counterfactual_examples")
     args = parser.parse_args()
 
@@ -48,6 +90,7 @@ def main():
 
     model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False)
     model.load_state_dict(checkpoint["model_state_dict"])
+    model.to(device).eval()
 
     gradcam_explainer = ChestXrayExplainer(model, device=str(device))
     cf_explainer = OcclusionCounterfactualExplainer(model, gradcam_explainer, device=str(device))
@@ -56,21 +99,20 @@ def main():
         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
         image_dir=train_cfg["data"]["image_dir"],
         classes=classes,
-        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
+        tabular_features=data_cfg["tabular_features"],
         image_size=train_cfg["data"]["image_size"],
         train=False,
-        tabular_stats=checkpoint.get("tabular_stats"),
     )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    indices = select_example_indices(model, test_ds, device, args.num_examples, args.strategy)
+
     flip_count = 0
-    for i in range(min(args.num_examples, len(test_ds))):
+    for i in indices:
         image, _tabular, labels = test_ds[i]
 
-        # Explain whichever class has the highest ground-truth label (or
-        # just the top predicted class if you'd rather see model-driven examples)
         with torch.no_grad():
             logits = model(image.unsqueeze(0).to(device))
             top_class_idx = torch.sigmoid(logits)[0].argmax().item()
@@ -92,7 +134,7 @@ def main():
         if result.flipped:
             flip_count += 1
 
-    print(f"\n{flip_count}/{args.num_examples} examples flipped the prediction after occlusion.")
+    print(f"\n{flip_count}/{len(indices)} examples flipped the prediction after occlusion.")
     print(f"Figures saved to {output_dir}/")
 
 
