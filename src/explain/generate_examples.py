@@ -12,6 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import yaml
 
@@ -33,6 +34,7 @@ def main():
     parser.add_argument("--data-config", default="configs/data.yaml")
     parser.add_argument("--train-config", default="configs/vision_baseline.yaml")
     parser.add_argument("--num-examples", type=int, default=6)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", default="docs/gradcam_examples")
     args = parser.parse_args()
 
@@ -52,17 +54,23 @@ def main():
         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
         image_dir=train_cfg["data"]["image_dir"],
         classes=classes,
-        tabular_features=checkpoint.get("tabular_features", data_cfg["tabular_features"]),
+        tabular_features=data_cfg["tabular_features"],
         image_size=train_cfg["data"]["image_size"],
         train=False,
-        tabular_stats=checkpoint.get("tabular_stats"),
     )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for i in range(min(args.num_examples, len(test_ds))):
-        image, _tabular, _labels = test_ds[i]
+    # Random sample across the whole test set, not just the first N rows —
+    # the dataset script lists all Pneumonia-positive rows before Normal
+    # rows, so taking the first N always picked the same class.
+    rng = np.random.default_rng(args.seed)
+    num_examples = min(args.num_examples, len(test_ds))
+    indices = rng.choice(len(test_ds), size=num_examples, replace=False)
+
+    for i in indices:
+        image, _tabular, _labels = test_ds[int(i)]
         top_results = explainer.explain_top_k(image, classes, k=1)
         top = top_results[0]
 
@@ -70,7 +78,7 @@ def main():
         save_overlay(top["overlay"], str(output_dir / filename))
         print(f"Saved {filename}")
 
-    print(f"\n{args.num_examples} example Grad-CAM overlays saved to {output_dir}/")
+    print(f"\n{num_examples} example Grad-CAM overlays saved to {output_dir}/")
     print("Pick a few of these to embed directly in the README's Explainability section.")
 
 
