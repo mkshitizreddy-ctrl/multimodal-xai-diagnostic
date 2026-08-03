@@ -1,0 +1,30 @@
+# Core
+torch>=2.2.0
+PyYAML>=6.0
+torchvision>=0.17.0
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.4.0
+
+# Imaging / DICOM
+pydicom>=2.4.0
+kagglehub>=0.3.0
+huggingface_hub>=0.25.0
+Pillow>=10.2.0
+opencv-python-headless>=4.9.0
+
+# Explainability
+grad-cam>=1.5.0
+torchxrayvision>=1.2.0
+
+# Dashboard
+streamlit>=1.32.0
+plotly>=5.20.0
+
+# Experiment tracking
+tqdm>=4.66.0
+matplotlib>=3.8.0
+jupyter>=1.0.0
+
+# Testing
+pytest>=8.0.0

@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+# Keep this intentionally narrow: E/F catch real bugs (unused imports,
+# undefined names, syntax issues) and unsorted imports (I) are a cheap,
+# uncontroversial fix. We deliberately don't enable stricter/opinionated
+# rule sets (pylint-style PLR*, bugbear B*, etc.) to avoid churn on a
+# research codebase where clarity matters more than strict style rules.
+select = ["E", "F", "I"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Notebooks-adjacent / script entry points sometimes need sys.path hacks
+# before imports, which triggers E402 (module import not at top of file).
+"dashboard/app.py" = ["E402"]
+"tests/*.py" = ["E402"]
