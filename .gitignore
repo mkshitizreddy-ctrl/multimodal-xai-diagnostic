@@ -1,0 +1,34 @@
+# Data
+data/raw/
+data/processed/
+*.dcm
+*.png
+*.jpg
+!docs/**/*.png
+!dashboard/assets/**/*.png
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Model checkpoints & logs
+checkpoints/
+*.pth
+*.ckpt
+wandb/
+mlruns/
+logs/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Env
+.env
+
+myenv/
+notebooks/.ipynb_checkpoints/
