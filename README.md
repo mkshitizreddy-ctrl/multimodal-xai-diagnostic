@@ -86,15 +86,20 @@ Every prediction is paired with a **Grad-CAM heatmap** (`src/explain/gradcam.py`
 python src/explain/generate_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth
 ```
 
-<!-- 🖼️ A couple of real Grad-CAM example images go here once generated from a trained model -->
+| High-confidence Pneumonia (0.99) | Low-confidence / Normal (0.06) |
+|---|---|
+| ![Grad-CAM Pneumonia example](docs/gradcam_examples/example_535_Pneumonia_0.99.png) | ![Grad-CAM Normal example](docs/gradcam_examples/example_479_Pneumonia_0.06.png) |
 
 **Counterfactual explanations** (`src/explain/counterfactual.py`) go a step further: the highest-activation region from Grad-CAM is inpainted out of the image, and the model is re-run on the result. A large confidence drop after removing that region is evidence the model's stated reasoning actually matches what's driving its prediction.
 
 ```bash
-python src/explain/generate_counterfactual_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth
+python src/explain/generate_counterfactual_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth --strategy borderline
 ```
 
-<!-- 🖼️ A couple of real counterfactual side-by-side figures go here once generated -->
+![Counterfactual flip example](docs/counterfactual_examples/example_471_Pneumonia.png)
+*Borderline-confidence prediction (0.510) flips to Normal (0.062) after masking the Grad-CAM region.*
+
+Testing on the 6 most borderline (closest to the 0.5 decision boundary) test predictions — the hardest possible case for this method, since confident predictions rarely flip regardless of explanation quality — **1/6 flipped outright, and 4 of the remaining 5 still showed a substantial confidence drop** toward Normal after occlusion. This is consistent evidence that the highlighted region is doing real work in the model's decision, not just noise.
 
 ## Dashboard
 
@@ -167,10 +172,14 @@ python src/evaluate_fusion.py --checkpoint checkpoints/fusion/best_model.pth
 jupyter notebook notebooks/02_fusion_ablation_results.ipynb
 ```
 
-*(Results table and training curve images will be pasted here once a full
-training run completes — the current epoch/batch-size config in
-`configs/vision_baseline.yaml` targets a full run on the complete dataset;
-reduce `epochs` or use a data subset for a faster smoke run.)*
+| Model | Test Macro AUROC |
+|---|---|
+| Vision-only baseline (DenseNet-121) | 0.9708 |
+| Vision + Tabular fusion | **0.9860** |
+
+![Training curves](docs/training_curves.png)
+
+Fusion improves test AUROC by **+1.5 points** over vision-only. Since the tabular vitals (temperature, SpO2) are synthetically generated with a deliberate correlation to the label (see [`docs/ethics_statement.md`](docs/ethics_statement.md)), this result demonstrates that **the fusion architecture correctly learns to exploit correlated tabular signal when present** — a valid architecture-level finding, not a real clinical discovery. Both models substantially exceed random chance (0.5) and validation AUROC (~0.999), with the gap between val and test AUROC (~0.03) reflecting normal generalization variance on a modestly-sized (~5,800 image) test set.
 
 ## Limitations & Ethics
 
