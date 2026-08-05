@@ -1,0 +1,45 @@
+# Data configuration for NIH Chest X-ray14 (LEGACY - superseded by data.yaml,
+# kept for reference/future use with the full 14-class NIH pipeline)
+
+dataset:
+  name: "nih-chest-xray14"
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  metadata_csv: "data/raw/Data_Entry_2017.csv"
+  image_dir: "data/raw/images"
+
+image:
+  size: 224            # DenseNet-121 expects 224x224
+  channels: 1           # chest X-rays are grayscale; replicated to 3ch in model input
+  normalize_mean: 0.5
+  normalize_std: 0.25
+
+labels:
+  # The 14 disease classes used in NIH Chest X-ray14 (multi-label)
+  classes:
+    - "Atelectasis"
+    - "Cardiomegaly"
+    - "Effusion"
+    - "Infiltration"
+    - "Mass"
+    - "Nodule"
+    - "Pneumonia"
+    - "Pneumothorax"
+    - "Consolidation"
+    - "Edema"
+    - "Emphysema"
+    - "Fibrosis"
+    - "Pleural_Thickening"
+    - "Hernia"
+
+tabular_features:
+  - "Patient Age"
+  - "Patient Gender"
+  - "View Position"
+
+split:
+  train_frac: 0.7
+  val_frac: 0.15
+  test_frac: 0.15
+  split_by: "Patient ID"   # prevents leakage across splits
+  random_seed: 42
