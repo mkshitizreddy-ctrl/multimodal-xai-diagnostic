@@ -113,7 +113,7 @@ It runs out of the box even before training — if no checkpoint is found at `ch
 
 <!-- 🖼️ Dashboard screenshot/GIF goes here once you have a trained model to demo -->
 
-**Deploying a live demo:** push this repo to a [Hugging Face Space](https://huggingface.co/new-space) (choose the Streamlit SDK) or connect it on [Streamlit Community Cloud](https://streamlit.io/cloud) — both work with `dashboard/app.py` and `requirements.txt` unmodified. Link the live demo at the top of this README once deployed.
+**Deploying a live demo:** free via [Streamlit Community Cloud](https://streamlit.io/cloud), with the trained checkpoint hosted on a free Hugging Face Hub model repo — see [`docs/deployment.md`](docs/deployment.md) for the full walkthrough (Hugging Face Spaces now requires a paid plan for Streamlit apps, so this repo doesn't use that path). Link the live demo at the top of this README once deployed.
 
 ## Usage
 
@@ -157,7 +157,7 @@ pytest tests/ -v
 - [x] Grad-CAM explainability module
 - [x] Occlusion-based counterfactual explainer
 - [x] Streamlit dashboard
-- [ ] Deploy live demo (Hugging Face Spaces)
+- [ ] Deploy live demo (Streamlit Community Cloud)
 
 ## Results
 
@@ -187,7 +187,7 @@ This is a research/portfolio prototype trained on a public dataset and is **not 
 
 ## Deploying a live demo
 
-See [`docs/deployment.md`](docs/deployment.md) for step-by-step instructions to deploy the dashboard to Hugging Face Spaces.
+See [`docs/deployment.md`](docs/deployment.md) for step-by-step instructions to deploy the dashboard for free.
 
 ## License
 
