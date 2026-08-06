@@ -7,11 +7,16 @@ the top prediction, and an occlusion-based counterfactual comparison.
 Run locally:
     streamlit run dashboard/app.py
 
-Deploy: push this repo to a Hugging Face Space (Streamlit SDK) or
-Streamlit Community Cloud — both work with this file unmodified as long as
-requirements.txt is present at the repo root.
+Deploy: push this repo to Streamlit Community Cloud (share.streamlit.io) —
+free, and deploys directly from GitHub. The trained checkpoint (too large
+for a normal git repo, and gitignored here) is instead hosted on a free
+Hugging Face Hub MODEL repo and downloaded automatically at startup if not
+already present locally — see docs/deployment.md. Set the HF_MODEL_REPO_ID
+constant below (or the HF_MODEL_REPO_ID env var / Streamlit secret) to your
+own repo once you've uploaded a checkpoint there.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -38,6 +43,41 @@ DATA_CONFIG_PATH = "configs/data.yaml"
 IMAGE_SIZE = 224
 NORM_MEAN, NORM_STD = 0.5, 0.25
 
+# Set this to "<your-hf-username>/multimodal-xai-diagnostic-weights" once you've
+# uploaded a checkpoint to a Hugging Face Hub model repo (see docs/deployment.md).
+# Can be overridden without editing code via env var or a Streamlit secret.
+def _get_hf_model_repo_id() -> str | None:
+    """Reads HF_MODEL_REPO_ID from an env var first, then a Streamlit
+    secret if configured — safely, since st.secrets raises (rather than
+    returning None) when no secrets.toml file exists at all, which is the
+    normal case for local runs and CI."""
+    env_value = os.environ.get("HF_MODEL_REPO_ID")
+    if env_value:
+        return env_value
+    try:
+        return st.secrets.get("HF_MODEL_REPO_ID")
+    except Exception:
+        return None
+
+
+HF_MODEL_REPO_ID = _get_hf_model_repo_id()
+HF_CHECKPOINT_FILENAME = "vision_baseline_best_model.pth"
+
+
+def _download_checkpoint_from_hf_hub() -> str | None:
+    """Downloads the checkpoint from a public HF Hub model repo if
+    HF_MODEL_REPO_ID is configured. Returns the local path, or None if not
+    configured or the download fails (caller falls back to demo mode)."""
+    if not HF_MODEL_REPO_ID:
+        return None
+    try:
+        from huggingface_hub import hf_hub_download
+
+        return hf_hub_download(repo_id=HF_MODEL_REPO_ID, filename=HF_CHECKPOINT_FILENAME)
+    except Exception as e:
+        st.warning(f"Could not download checkpoint from Hugging Face Hub ({HF_MODEL_REPO_ID}): {e}")
+        return None
+
 
 @st.cache_resource
 def load_data_config():
@@ -47,15 +87,18 @@ def load_data_config():
 
 @st.cache_resource
 def load_vision_model():
-    """Loads the trained vision-only checkpoint if present, otherwise falls
-    back to an untrained model so the dashboard is still explorable before
-    training has been run (clearly labeled as demo mode in the UI)."""
+    """Loads the trained vision-only checkpoint if present locally, else
+    tries downloading it from HF Hub (for the deployed demo), else falls
+    back to an untrained model so the dashboard is still explorable
+    (clearly labeled as demo mode in the UI)."""
     data_cfg = load_data_config()
     classes = data_cfg["labels"]["classes"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    if Path(VISION_CHECKPOINT).exists():
-        checkpoint = torch.load(VISION_CHECKPOINT, map_location=device)
+    checkpoint_path = VISION_CHECKPOINT if Path(VISION_CHECKPOINT).exists() else _download_checkpoint_from_hf_hub()
+
+    if checkpoint_path is not None:
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         model = ChestXrayVisionModel(num_classes=len(checkpoint["classes"]), pretrained=False)
         model.load_state_dict(checkpoint["model_state_dict"])
         return model.to(device).eval(), checkpoint["classes"], device, True
@@ -105,10 +148,12 @@ def main():
 
     if not is_trained:
         st.warning(
-            "⚠️ No trained checkpoint found at `checkpoints/vision_baseline/best_model.pth` — "
-            "running with **randomly initialized weights**. Predictions below are meaningless; "
-            "this mode exists so the dashboard UI is explorable before training. "
-            "Run `python src/train.py` first for real results."
+            "⚠️ No trained checkpoint found locally, and no Hugging Face Hub "
+            "checkpoint is configured (`HF_MODEL_REPO_ID`) — running with "
+            "**randomly initialized weights**. Predictions below are "
+            "meaningless; this mode exists so the dashboard UI is explorable "
+            "without a trained model. Run `python src/train.py` locally, or "
+            "see `docs/deployment.md` to configure a hosted checkpoint."
         )
 
     uploaded_file = st.file_uploader("Upload a chest X-ray", type=["png", "jpg", "jpeg"])
