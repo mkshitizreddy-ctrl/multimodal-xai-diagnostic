@@ -35,7 +35,7 @@ def load_config(path: str) -> dict:
 def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.DataFrame:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     classes = checkpoint["classes"]
     # Reuse the exact normalization stats/vocab fit on train during training
     # (falls back to None -> refit if loading an older checkpoint saved

@@ -28,7 +28,7 @@ from src.train import compute_macro_auroc, load_config
 def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.DataFrame:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     classes = checkpoint["classes"]
     tabular_features = checkpoint["tabular_features"]
     tabular_stats = checkpoint.get("tabular_stats")
