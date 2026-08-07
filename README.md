@@ -1,5 +1,6 @@
 # 🩺 Explainable Multimodal Diagnostic Support System
 
+🔗 **[Live Demo](https://multimodal-xai-diagnostic-nupdkmnbnjfrfg2yuydlqx.streamlit.app)**
 ![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
