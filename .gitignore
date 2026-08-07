@@ -29,3 +29,6 @@ logs/
 
 # Env
 .env
+
+myenv/
+notebooks/.ipynb_checkpoints/
