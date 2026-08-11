@@ -1,0 +1,37 @@
+# Config for the multimodal fusion model (Phase 3 of the roadmap)
+# Mirrors configs/vision_baseline.yaml — kept as a separate file so both
+# runs' hyperparameters are independently reproducible for the ablation study.
+
+data:
+  train_csv: "data/processed/train.csv"
+  val_csv: "data/processed/val.csv"
+  test_csv: "data/processed/test.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+
+model:
+  name: "densenet121_fusion"
+  pretrained: true
+  tabular_embedding_dim: 64
+  dropout: 0.2
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false   # avoids a known Windows+CUDA access-violation crash; set true if your setup handles it
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+
+checkpoint:
+  dir: "checkpoints/fusion"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/fusion"
+  log_every_n_steps: 50
