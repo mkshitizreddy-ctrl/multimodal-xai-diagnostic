@@ -1,11 +1,19 @@
-# Data configuration for NIH Chest X-ray14 (LEGACY - superseded by data.yaml,
-# kept for reference/future use with the full 14-class NIH pipeline)
+# Data configuration for the Chest X-ray Pneumonia dataset (current pipeline).
+#
+# Switched from the full NIH Chest X-ray14 dataset (see configs/data_nih_legacy.yaml)
+# to keep disk/compute requirements manageable for local training (~2GB vs
+# ~45GB). Prepared by data/scripts/prepare_pneumonia_dataset.py, which
+# downloads the images AND generates the tabular features below directly —
+# there is no separate preprocess.py step for this dataset (unlike NIH).
+#
+# IMPORTANT: Patient Age, Patient Gender, Temperature, and SpO2 are
+# SYNTHETIC — the source dataset ships images only, no EHR data. See
+# docs/ethics_statement.md before presenting any results from this pipeline.
 
 dataset:
-  name: "nih-chest-xray14"
+  name: "chest-xray-pneumonia"
   raw_dir: "data/raw"
   processed_dir: "data/processed"
-  metadata_csv: "data/raw/Data_Entry_2017.csv"
   image_dir: "data/raw/images"
 
 image:
@@ -15,31 +23,20 @@ image:
   normalize_std: 0.25
 
 labels:
-  # The 14 disease classes used in NIH Chest X-ray14 (multi-label)
+  # Binary classification: is Pneumonia present in this X-ray?
   classes:
-    - "Atelectasis"
-    - "Cardiomegaly"
-    - "Effusion"
-    - "Infiltration"
-    - "Mass"
-    - "Nodule"
     - "Pneumonia"
-    - "Pneumothorax"
-    - "Consolidation"
-    - "Edema"
-    - "Emphysema"
-    - "Fibrosis"
-    - "Pleural_Thickening"
-    - "Hernia"
 
 tabular_features:
+  # SYNTHETIC — see module docstring above and docs/ethics_statement.md
   - "Patient Age"
   - "Patient Gender"
-  - "View Position"
+  - "Temperature"
+  - "SpO2"
 
 split:
-  train_frac: 0.7
-  val_frac: 0.15
-  test_frac: 0.15
-  split_by: "Patient ID"   # prevents leakage across splits
+  # Train/test is preserved exactly as the original dataset curators split
+  # it (already patient-disjoint). Validation is carved out of the train
+  # split only, patient-grouped — see prepare_pneumonia_dataset.py.
+  val_frac_of_train: 0.15
   random_seed: 42
