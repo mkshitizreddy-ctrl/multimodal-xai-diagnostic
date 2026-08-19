@@ -7,7 +7,7 @@ code-only repo.
 **Note:** Hugging Face Spaces now requires a paid PRO plan to create Gradio
 or Docker Spaces (which Streamlit apps run on) — only Static Spaces are
 free, and those can't run Python. The path below is **fully free**: the app
-runs on [Streamlit Community Cloud](https://streamlit.io/cloud broken-typo, and the
+runs on [Streamlit Community Cloud](https://streamlit.io/cloud), and the
 trained checkpoint (too large for a normal git repo) is hosted on a free
 Hugging Face Hub **model repo** — Hub storage is unaffected by the Spaces
 compute pricing change.
