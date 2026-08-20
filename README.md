@@ -25,20 +25,9 @@ An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measur
 
 ## Architecture
 
-```
-                ┌────────────────────┐
-   X-ray image →│  DenseNet-121       │─────────────┐
-   (224x224x3)  │  feature extractor  │  1024-dim    │
-                └────────────────────┘  embedding    │
-                                                       ▼
-                ┌────────────────────┐         ┌───────────────┐      ┌─────────────────────┐
-  Patient meta →│  Tabular MLP        │────────▶│ Concatenate +  │────▶│ Pneumonia probability │
-  (age, gender, │  encoder            │ 64-dim  │ classifier head│     │ (sigmoid, binary)     │
-  temp, SpO2 —  └────────────────────┘ embedding└───────────────┘      └─────────────────────┘
-  SYNTHETIC*)
-```
-*synthetic — see [`docs/ethics_statement.md`](docs/ethics_statement.md). Will swap this for a
-proper rendered diagram at some point, ASCII art is fine for now.
+![Multimodal fusion architecture](docs/assets/architecture_diagram.svg)
+
+*synthetic — see [`docs/ethics_statement.md`](docs/ethics_statement.md)
 
 ## Tech stack
 
