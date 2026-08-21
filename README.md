@@ -6,7 +6,9 @@
 
 > Chest X-ray diagnosis with fused clinical metadata, and visual explanations (Grad-CAM + occlusion-based counterfactuals) so the model's reasoning is inspectable instead of a black box.
 
-🔗 **[Live Demo](https://multimodal-xai-diagnostic-nupdkmnbnjfrfg2yuydlqx.streamlit.app)**
+🔗 **[Live Demo](https://PLACEHOLDER-multimodal-xai-diagnostic.streamlit.app)** *(redeploying — see note below)*
+
+> **Live demo status:** the previous Streamlit Community Cloud deployment was torn down (free-tier apps are reaped after inactivity) and the URL previously listed here (`…nupdkmnbnjfrfg2yuydlqx.streamlit.app`) now returns 404. The app is configured to redeploy on Streamlit Community Cloud from `master` of this repo, pulling the trained checkpoint from the public Hugging Face model repo `Kshitiz151/multimodal-xai-diagnostic-weights` — see [`docs/deployment.md`](docs/deployment.md) for the full walkthrough. Until the new URL is pasted in above, clicking the link will 404.
 
 ![Dashboard demo](docs/screenshots/dashboard_demo.png)
 

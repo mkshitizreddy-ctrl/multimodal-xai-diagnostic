@@ -42,13 +42,15 @@ api.upload_file(
 
 Streamlit Community Cloud deploys directly from a GitHub repo - no
 separate git remote or push needed, unlike the old Spaces workflow. Just
-make sure your latest code is pushed to `main`.
+make sure your latest code is pushed to `master`. (Older docs / older
+deploys referenced `main` — this repo's default branch has been
+`master` since the v2 reset, so pick `master` when configuring the app.)
 
 ## 3. Deploy on Streamlit Community Cloud
 
 1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
 2. Click **New app**.
-3. **Repository:** `<your-username>/multimodal-xai-diagnostic`. **Branch:** `main`. **Main file path:** `dashboard/app.py`.
+3. **Repository:** `<your-username>/multimodal-xai-diagnostic`. **Branch:** `master` (this repo's default branch — older versions of this doc said `main`, that's no longer correct). **Main file path:** `dashboard/app.py`.
 4. Before deploying, click **Advanced settings** and add a secret so the app knows where to download your checkpoint from:
    ```toml
    HF_MODEL_REPO_ID = "<your-username>/multimodal-xai-diagnostic-weights"
