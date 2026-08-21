@@ -3,9 +3,18 @@
 # CI, which has no GPU). If you're on a machine with an NVIDIA GPU, install
 # the CUDA build separately per https://pytorch.org/get-started/locally/
 # (this repo was developed against the +cu121 build).
-torch==2.5.1
+#
+# 2.9.1 / 0.24.1 is the matched PyTorch pair (per pytorch/vision release
+# notes), AND the lowest torch version that ships cp314 (Python 3.14)
+# manylinux wheels on PyPI. Streamlit Community Cloud now provisions
+# Python 3.14 by default and ignores runtime.txt (closed SCC bug, see
+# streamlit/streamlit#15326), so pinning to older torch==2.5.x causes
+# `pip` to fail with "No matching distribution found" at install time.
+# Don't downgrade these without re-checking that the chosen versions
+# still ship cp314 wheels.
+torch==2.9.1
+torchvision==0.24.1
 PyYAML==6.0.3
-torchvision==0.20.1
 numpy==2.4.4
 pandas==3.0.5
 scikit-learn==1.9.0
