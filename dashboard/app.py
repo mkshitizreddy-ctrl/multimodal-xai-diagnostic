@@ -45,21 +45,30 @@ DATA_CONFIG_PATH = "configs/data.yaml"
 IMAGE_SIZE = 224
 NORM_MEAN, NORM_STD = 0.5, 0.25
 
-# Set this to "<your-hf-username>/multimodal-xai-diagnostic-weights" once you've
-# uploaded a checkpoint to a Hugging Face Hub model repo (see docs/deployment.md).
-# Can be overridden without editing code via env var or a Streamlit secret.
+# Default HF Hub model repo hosting the trained checkpoint (see
+# docs/deployment.md for how it got there). Env var / Streamlit secret
+# below still take priority if set, so this can be overridden per-deploy
+# without editing code — e.g. for a fork pointing at someone else's weights.
+DEFAULT_HF_MODEL_REPO_ID = "Kshitiz151/multimodal-xai-diagnostic-weights"
+
+
 def _get_hf_model_repo_id() -> str | None:
     """Reads HF_MODEL_REPO_ID from an env var first, then a Streamlit
     secret if configured — safely, since st.secrets raises (rather than
     returning None) when no secrets.toml file exists at all, which is the
-    normal case for local runs and CI."""
+    normal case for local runs and CI. Falls back to
+    DEFAULT_HF_MODEL_REPO_ID rather than None, so the deployed app works
+    out of the box without needing a secret set."""
     env_value = os.environ.get("HF_MODEL_REPO_ID")
     if env_value:
         return env_value
     try:
-        return st.secrets.get("HF_MODEL_REPO_ID")
+        secret_value = st.secrets.get("HF_MODEL_REPO_ID")
+        if secret_value:
+            return secret_value
     except Exception:
-        return None
+        pass
+    return DEFAULT_HF_MODEL_REPO_ID
 
 
 HF_MODEL_REPO_ID = _get_hf_model_repo_id()
