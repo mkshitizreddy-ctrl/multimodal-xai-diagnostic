@@ -44,18 +44,22 @@ def test_render_probability_chart_returns_figure():
 
 
 def test_load_vision_model_demo_mode_when_no_checkpoint(monkeypatch):
-    """With no checkpoint present (the state of a fresh clone before
-    training), the app should fall back to an untrained model rather
-    than crashing.
+    """With no checkpoint present anywhere (neither local nor a real
+    Hugging Face Hub download), the app should fall back to an untrained
+    model rather than crashing.
 
-    Uses monkeypatch to force this regardless of the actual filesystem
-    state — on a machine that HAS actually trained a real checkpoint
-    (e.g. after following the training guide), the real checkpoint would
-    legitimately be found and is_trained would be True, which isn't a bug,
-    just a different (better!) environment than a fresh clone. Testing the
-    fallback behavior shouldn't depend on which state the machine is in.
+    Patches both the local checkpoint path AND the HF Hub download
+    function — patching only the local path isn't enough on a machine
+    with real internet access and DEFAULT_HF_MODEL_REPO_ID set (the
+    normal case since that default was added), since load_vision_model()
+    would then legitimately fall through to downloading the real
+    checkpoint from HF Hub and correctly report is_trained=True. That's
+    correct behavior, not a bug — this test just needs to isolate the
+    true "nothing available anywhere" case to test the fallback path
+    itself, independent of network/HF state.
     """
     monkeypatch.setattr(dashboard_app, "VISION_CHECKPOINT", "checkpoints/does_not_exist.pth")
+    monkeypatch.setattr(dashboard_app, "_download_checkpoint_from_hf_hub", lambda: None)
     dashboard_app.load_vision_model.clear()  # bypass @st.cache_resource across test runs
 
     model, classes, device, is_trained = dashboard_app.load_vision_model()
