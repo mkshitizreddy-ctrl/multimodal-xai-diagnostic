@@ -9,6 +9,7 @@ in the ablation study — see notebooks/02_fusion_ablation_results.ipynb.
 import torch
 import torch.nn as nn
 
+from src.models.attention import CBAM
 from src.models.tabular_encoder import TabularEncoder
 from src.models.vision_encoder import build_densenet_backbone
 
@@ -21,10 +22,13 @@ class ChestXrayFusionModel(nn.Module):
         pretrained: bool = True,
         tabular_embedding_dim: int = 64,
         dropout: float = 0.2,
+        use_cbam: bool = False,
     ):
         super().__init__()
 
         self.features, vision_dim = build_densenet_backbone(pretrained)
+        self.use_cbam = use_cbam
+        self.cbam = CBAM(vision_dim) if use_cbam else nn.Identity()
         self.vision_pool = nn.Sequential(
             nn.ReLU(inplace=True),
             nn.AdaptiveAvgPool2d((1, 1)),
@@ -51,7 +55,9 @@ class ChestXrayFusionModel(nn.Module):
         self.gradcam_target_layer = "features.denseblock4.denselayer16.conv2"
 
     def forward(self, image: torch.Tensor, tabular: torch.Tensor) -> torch.Tensor:
-        vision_feats = self.vision_pool(self.features(image))
+        vision_feats = self.features(image)
+        vision_feats = self.cbam(vision_feats)
+        vision_feats = self.vision_pool(vision_feats)
         tabular_feats = self.tabular_encoder(tabular)
         fused = torch.cat([vision_feats, tabular_feats], dim=1)
         return self.classifier(fused)
