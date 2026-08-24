@@ -160,6 +160,9 @@ def main():
         num_classes=len(classes),
         pretrained=train_cfg["model"]["pretrained"],
         dropout=train_cfg["model"]["dropout"],
+        # .get() with a default so older configs (e.g. data_nih_legacy-era
+        # runs) without this key still load fine.
+        use_cbam=train_cfg["model"].get("use_cbam", False),
     ).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -215,6 +218,12 @@ def main():
                     "classes": classes,
                     "tabular_stats": tabular_stats,
                     "epoch": epoch,
+                    # Saved so evaluate.py / dashboard / explain scripts can
+                    # rebuild the exact same architecture before loading
+                    # weights (a CBAM checkpoint's state_dict has extra keys
+                    # a plain model doesn't, so this has to match or
+                    # load_state_dict fails).
+                    "use_cbam": model.use_cbam,
                 },
                 checkpoint_dir / "best_model.pth",
             )

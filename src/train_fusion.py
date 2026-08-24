@@ -89,6 +89,7 @@ def main():
         pretrained=train_cfg["model"]["pretrained"],
         tabular_embedding_dim=train_cfg["model"]["tabular_embedding_dim"],
         dropout=train_cfg["model"]["dropout"],
+        use_cbam=train_cfg["model"].get("use_cbam", False),
     ).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -141,6 +142,7 @@ def main():
                     "tabular_features": data_cfg["tabular_features"],
                     "tabular_stats": tabular_stats,
                     "epoch": epoch,
+                    "use_cbam": model.use_cbam,
                 },
                 checkpoint_dir / "best_model.pth",
             )

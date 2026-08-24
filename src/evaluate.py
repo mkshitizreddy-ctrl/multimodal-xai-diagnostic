@@ -50,7 +50,10 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
             "model was trained on. Retrain to fix this properly."
         )
 
-    model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False)
+    # .get() default handles checkpoints saved before use_cbam existed
+    model = ChestXrayVisionModel(
+        num_classes=len(classes), pretrained=False, use_cbam=checkpoint.get("use_cbam", False)
+    )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device).eval()
 

@@ -112,7 +112,11 @@ def load_vision_model():
 
     if checkpoint_path is not None:
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
-        model = ChestXrayVisionModel(num_classes=len(checkpoint["classes"]), pretrained=False)
+        model = ChestXrayVisionModel(
+            num_classes=len(checkpoint["classes"]),
+            pretrained=False,
+            use_cbam=checkpoint.get("use_cbam", False),
+        )
         model.load_state_dict(checkpoint["model_state_dict"])
         return model.to(device).eval(), checkpoint["classes"], device, True
 

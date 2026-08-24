@@ -44,6 +44,7 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
         num_classes=len(classes),
         num_tabular_features=len(tabular_features),
         pretrained=False,
+        use_cbam=checkpoint.get("use_cbam", False),
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device).eval()

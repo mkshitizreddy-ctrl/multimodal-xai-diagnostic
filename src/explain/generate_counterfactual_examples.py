@@ -95,7 +95,9 @@ def main():
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
     classes = checkpoint["classes"]
 
-    model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False)
+    model = ChestXrayVisionModel(
+        num_classes=len(classes), pretrained=False, use_cbam=checkpoint.get("use_cbam", False)
+    )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device).eval()
 
