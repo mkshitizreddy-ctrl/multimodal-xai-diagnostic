@@ -241,6 +241,12 @@ config, only `use_cbam` different:
 | Wilcoxon signed-rank | | | **p=0.0013** |
 | Test images where CBAM improved localization | | | 20 / 26 |
 
+*(Note: this run's no-CBAM baseline — 0.9592 — differs from the 0.9708 in
+the main Results table above. Same architecture, same data splits, same
+hyperparameters — just a different random seed on a separate training run.
+That ~1-point spread is normal run-to-run variance for a test set this
+size, not an inconsistency between the two tables.)*
+
 **The honest reading:** CBAM barely moved accuracy — both models are already
 near-ceiling on this dataset (test AUROC ~0.96 either way), so a 0.16-point
 gap is noise, not a result. But it produced a real, statistically significant
@@ -252,7 +258,7 @@ by one outlier). This is exactly the finding the literature review predicted
 localization quality, not raw accuracy, which matters more for an
 explainability-focused project than it would for a pure classification one.
 
-Four of the 28 sampled test images were dropped from the paired comparison
+Four of the 30 sampled test images were dropped from the paired comparison
 (indices 515, 479, 591, 461) because Grad-CAM produced a near-zero heatmap on
 one side — this happens when the model is confidently predicting the class
 is *absent* (all four had predicted probability ≤0.02), leaving essentially
