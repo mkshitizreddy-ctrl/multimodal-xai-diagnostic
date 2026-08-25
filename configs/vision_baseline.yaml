@@ -10,6 +10,11 @@ model:
   name: "densenet121"
   pretrained: true
   dropout: 0.2
+  # CBAM attention (Woo et al. ECCV 2018) inserted after the backbone,
+  # before pooling. Added after reading the pneumonia-CXR literature —
+  # see docs/architecture.md#attention-module for the papers and why.
+  # Set false to reproduce the original no-CBAM baseline numbers in the README.
+  use_cbam: true
 
 train:
   epochs: 15

@@ -44,3 +44,36 @@ def test_gradcam_target_layer_resolves():
     model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False)
     layer = model.get_target_layer()
     assert isinstance(layer, nn.Module)
+
+
+def test_cbam_forward_pass_output_shape():
+    """use_cbam=True shouldn't change the output shape, just add attention
+    in the middle of the forward pass."""
+    model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False, use_cbam=True)
+    x = torch.randn(BATCH_SIZE, 3, 224, 224)
+    logits = model(x)
+    assert logits.shape == (BATCH_SIZE, NUM_CLASSES)
+
+
+def test_cbam_backward_pass_runs():
+    model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False, use_cbam=True)
+    x = torch.randn(BATCH_SIZE, 3, 224, 224)
+    labels = torch.randint(0, 2, (BATCH_SIZE, NUM_CLASSES)).float()
+
+    logits = model(x)
+    loss = nn.BCEWithLogitsLoss()(logits, labels)
+    loss.backward()
+
+    # Confirm gradients flowed into the CBAM module itself, not just
+    # around it — otherwise it'd be dead weight sitting in the graph.
+    grad_norms = [p.grad.norm().item() for p in model.cbam.parameters() if p.grad is not None]
+    assert len(grad_norms) > 0
+    assert all(g >= 0 for g in grad_norms)
+
+
+def test_cbam_off_by_default_is_identity():
+    """use_cbam=False (the old default) should still produce a plain
+    nn.Identity so existing no-CBAM checkpoints keep loading correctly."""
+    model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False)
+    assert isinstance(model.cbam, nn.Identity)
+    assert list(model.cbam.parameters()) == []

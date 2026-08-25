@@ -14,6 +14,9 @@ model:
   pretrained: true
   tabular_embedding_dim: 64
   dropout: 0.2
+  # see configs/vision_baseline.yaml — same CBAM addition, applied to the
+  # vision branch before it's concatenated with the tabular embedding.
+  use_cbam: true
 
 train:
   epochs: 15
