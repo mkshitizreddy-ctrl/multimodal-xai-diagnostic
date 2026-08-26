@@ -1,0 +1,133 @@
+"""
+Quantifies how much of a Grad-CAM heatmap's energy falls inside the
+segmented lung fields vs. outside — turns the manual audit described in
+docs/ethics_statement.md into a number, and gives a concrete way to check
+whether CBAM actually helps localization (not just accuracy) as the
+literature review in docs/architecture.md#attention-module claimed it should.
+
+Run once per checkpoint (e.g. once with use_cbam=false, once with
+use_cbam=true) and compare the printed "lung energy fraction" — higher is
+better (heatmap concentrating on lung tissue instead of spreading to
+shoulders/borders/annotations).
+
+Usage:
+    python src/explain/measure_lung_localization.py \
+        --checkpoint checkpoints/vision_baseline/best_model.pth \
+        --num-examples 30
+"""
+
+import argparse
+import csv
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.data.dataset import ChestXrayDataset
+from src.explain.gradcam import ChestXrayExplainer
+from src.explain.lung_segmentation import get_lung_mask
+from src.models.vision_encoder import ChestXrayVisionModel
+
+
+def load_config(path: str) -> dict:
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+def lung_energy_fraction(heatmap: np.ndarray, lung_mask: np.ndarray) -> float:
+    """Fraction of the heatmap's total activation that falls inside the
+    lung mask. 1.0 = every bit of activation is on lung tissue; lower
+    values mean the model is (at least partly) keying off something
+    outside the lungs — shoulders, image borders, burned-in markers, etc.
+    """
+    total = heatmap.sum()
+    if total <= 1e-8:
+        return float("nan")  # degenerate heatmap, shouldn't normally happen
+    inside = (heatmap * lung_mask).sum()
+    return float(inside / total)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--data-config", default="configs/data.yaml")
+    parser.add_argument("--train-config", default="configs/vision_baseline.yaml")
+    parser.add_argument("--num-examples", type=int, default=30)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output-csv", default=None, help="Optional path to save per-image results.")
+    args = parser.parse_args()
+
+    data_cfg = load_config(args.data_config)
+    train_cfg = load_config(args.train_config)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
+    classes = checkpoint["classes"]
+    use_cbam = checkpoint.get("use_cbam", False)
+
+    model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False, use_cbam=use_cbam)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    explainer = ChestXrayExplainer(model, device=str(device))
+
+    test_ds = ChestXrayDataset(
+        csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
+        image_dir=train_cfg["data"]["image_dir"],
+        classes=classes,
+        tabular_features=data_cfg["tabular_features"],
+        image_size=train_cfg["data"]["image_size"],
+        train=False,
+    )
+
+    rng = np.random.default_rng(args.seed)
+    num_examples = min(args.num_examples, len(test_ds))
+    indices = rng.choice(len(test_ds), size=num_examples, replace=False)
+
+    fractions = []
+    rows = []
+
+    for i in indices:
+        image, _tabular, _labels = test_ds[int(i)]
+        with torch.no_grad():
+            logits = model(image.unsqueeze(0).to(device))
+            probs = torch.sigmoid(logits)[0].cpu()
+        pred_idx = int(torch.argmax(probs))
+
+        _overlay, heatmap = explainer.explain(image, pred_idx)
+        lung_mask = get_lung_mask(image, output_size=heatmap.shape[0])
+        frac = lung_energy_fraction(heatmap, lung_mask)
+
+        fractions.append(frac)
+        rows.append(
+            {
+                "index": int(i),
+                "predicted_class": classes[pred_idx],
+                "predicted_probability": probs[pred_idx].item(),
+                "lung_energy_fraction": frac,
+            }
+        )
+        print(f"  [{i}] {classes[pred_idx]:>12s}  p={probs[pred_idx]:.2f}  lung_fraction={frac:.3f}")
+
+    valid_fractions = [f for f in fractions if not np.isnan(f)]
+    mean_frac = float(np.mean(valid_fractions))
+    std_frac = float(np.std(valid_fractions))
+
+    print(f"\nuse_cbam = {use_cbam}")
+    print(f"n = {len(valid_fractions)} test images")
+    print(f"mean lung-energy fraction = {mean_frac:.3f} (std {std_frac:.3f})")
+
+    if args.output_csv:
+        out_path = Path(args.output_csv)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"Per-image results saved to {out_path}")
+
+
+if __name__ == "__main__":
+    main()
