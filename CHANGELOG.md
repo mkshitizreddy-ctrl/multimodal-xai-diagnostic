@@ -19,10 +19,13 @@ build phase they correspond to.
   rebuild the right architecture automatically before loading weights
 - 10 new tests (`test_attention.py`, `test_measure_lung_localization.py`,
   plus CBAM cases added to `test_vision_model.py`)
-- Retrained and benchmarked: no meaningful accuracy change (0.9592 vs 0.9608
-  test AUROC), but a real, statistically significant improvement in Grad-CAM
-  lung localization (+0.096 mean lung-energy fraction, p=0.0013,
-  Wilcoxon signed-rank) — see the [Results](README.md#results) section
+- Retrained and benchmarked across 3 seeds (42, 123, 2024) per condition —
+  caught and corrected a pseudo-replication mistake in an earlier single-seed
+  analysis (image-level p=0.0013 was invalid; images from one model aren't
+  independent replicates). Properly replicated result: a non-significant
+  trend toward better localization (+0.060 ± 0.076, p=0.31, n=3 seeds) and
+  a non-significant trend toward slightly worse accuracy (−0.012 ± 0.014,
+  p=0.25) — see the [Results](README.md#results) section
 
 ## v0.8 — Dataset pivot to Chest X-ray Pneumonia
 - Switched primary dataset from NIH Chest X-ray14 (~45GB, 14-class) to Kaggle

@@ -229,58 +229,76 @@ targets *where* the model looks, which is the whole point here.
 
 **Current status:** implemented, tested (10 tests across `test_attention.py`
 and the CBAM cases in `test_vision_model.py`), `use_cbam: true` is the
-default in both configs, and **now actually retrained and benchmarked** —
-both a no-CBAM baseline and a CBAM run, same data splits, same 15-epoch
-config, only `use_cbam` different:
+default in both configs, and **retrained across 3 random seeds** per
+condition (42, 123, 2024 — same data splits, same 15-epoch config, only
+`use_cbam` and the seed different) to get a properly replicated comparison
+instead of a single lucky (or unlucky) run.
 
-| Metric | No CBAM | CBAM | Difference |
+**Test macro AUROC:**
+
+| Seed | No CBAM | CBAM | Diff (CBAM − No CBAM) |
 |---|---|---|---|
-| Test macro AUROC | 0.9592 | 0.9608 | +0.0016 (not meaningful — within noise) |
-| Mean Grad-CAM lung-energy fraction (n=26 paired) | 0.415 | 0.511 | **+0.096** |
-| Paired t-test | | | t=3.40, **p=0.0023** |
-| Wilcoxon signed-rank | | | **p=0.0013** |
-| Test images where CBAM improved localization | | | 20 / 26 |
+| 42 | 0.9592 | 0.9608 | +0.0016 |
+| 123 | 0.9695 | 0.9445 | −0.0250 |
+| 2024 | 0.9736 | 0.9604 | −0.0132 |
+| **Mean ± std** | 0.9674 ± 0.0074 | 0.9552 ± 0.0093 | **−0.0122 ± 0.0139** |
 
-*(Note: this run's no-CBAM baseline — 0.9592 — differs from the 0.9708 in
-the main Results table above. Same architecture, same data splits, same
-hyperparameters — just a different random seed on a separate training run.
-That ~1-point spread is normal run-to-run variance for a test set this
-size, not an inconsistency between the two tables.)*
+One-sample t-test on the 3 seed-level differences vs. 0: t=−1.59, **p=0.25 (not significant, n=3)**
 
-**The honest reading:** CBAM barely moved accuracy — both models are already
-near-ceiling on this dataset (test AUROC ~0.96 either way), so a 0.16-point
-gap is noise, not a result. But it produced a real, statistically significant
-shift in *where* the model looks: Grad-CAM heatmaps concentrate substantially
-more inside the segmented lung field with CBAM on — a 23% relative increase
-in lung-energy fraction, consistent across 20 of 26 test images (not driven
-by one outlier). This is exactly the finding the literature review predicted
-(see [`docs/paper_notes.md`](docs/paper_notes.md)): CBAM's value here is
-localization quality, not raw accuracy, which matters more for an
-explainability-focused project than it would for a pure classification one.
+**Mean Grad-CAM lung-energy fraction** (fraction of heatmap energy inside the segmented lung field; paired within each seed, NaN images dropped):
 
-Four of the 30 sampled test images were dropped from the paired comparison
-(indices 515, 479, 591, 461) because Grad-CAM produced a near-zero heatmap on
-one side — this happens when the model is confidently predicting the class
-is *absent* (all four had predicted probability ≤0.02), leaving essentially
-no activation to measure a fraction of. `measure_lung_localization.py`
-correctly flags these as NaN rather than reporting a meaningless number.
+| Seed | No CBAM | CBAM | Diff (CBAM − No CBAM) |
+|---|---|---|---|
+| 42 | 0.415 | 0.511 | +0.098 |
+| 123 | 0.463 | 0.572 | +0.109 |
+| 2024 | 0.498 | 0.470 | −0.028 |
+| **Mean ± std** | — | — | **+0.060 ± 0.076** |
 
-Visual example — index 272, same test image, both checkpoints:
+One-sample t-test on the 3 seed-level differences vs. 0: t=1.36, **p=0.31 (not significant, n=3)**
+
+**The honest reading — including a correction to our own earlier analysis:**
+An initial single-seed comparison (seed 42 only) reported the localization
+improvement as highly significant (p=0.0013). That number was
+**pseudo-replicated** — it treated 26 images from *one* trained model as 26
+independent experiments, when they all share the same weights and are
+correlated with each other. The statistically correct unit of replication
+here is the *training run* (seed), not the image. Redone properly across 3
+seeds: **2 of 3 seeds show a real localization improvement (seeds 42 and
+123, both ~+0.10), but one shows a decline (seed 2024, −0.03)**, and with
+only 3 replicates the mean effect (+0.060 ± 0.076) isn't statistically
+distinguishable from noise (p=0.31). Accuracy tells a similar story in the
+other direction — a small, non-significant *decrease* on average
+(−0.012 ± 0.014, p=0.25), driven mostly by one seed (123) where CBAM
+underperformed by 2.5 points.
+
+**The fair summary:** there's a real trend toward better Grad-CAM
+localization with CBAM, consistent with the literature review
+([`docs/paper_notes.md`](docs/paper_notes.md)), but n=3 seeds isn't enough
+to call it proven, and it does not come for free — accuracy doesn't
+reliably improve and may trend slightly worse. This is a more honest
+(and more useful) finding than a suspiciously clean single-run result would
+have been: it shows the effect is real-ish but not dramatic, and that
+claiming statistical significance from within-model image variance is a
+mistake worth catching rather than repeating.
+
+Visual example — index 272, seed 42, same test image, both checkpoints
+(illustrative of the seed-42 result specifically, not a population-level claim):
 
 | No CBAM | CBAM |
 |---|---|
 | ![No CBAM](docs/gradcam_examples_no_cbam/example_272_Pneumonia_0.99.png) | ![CBAM](docs/gradcam_examples/example_272_Pneumonia_1.00.png) |
 
 The no-CBAM heatmap extends up over the shoulder/clavicle, outside the
-actual lung field. The CBAM version sits more centrally over the upper
-chest — not a dramatic transformation, but a real, visible shift toward the
-lungs, consistent with the quantitative result above. Not every image
-improved, though — index 479 (the low-confidence "normal" case) is a fair
-counterexample: the no-CBAM heatmap is nearly nonexistent (matches its NaN
-localization score), and CBAM's version, while measurable, lands mostly
-outside the ribcage rather than being a clean win. Full per-image numbers in
-[`docs/localization_no_cbam.csv`](docs/localization_no_cbam.csv) and
-[`docs/localization_cbam.csv`](docs/localization_cbam.csv).
+actual lung field; the CBAM version sits more centrally over the upper
+chest. Not every image improved even within this one seed — index 479 (the
+low-confidence "normal" case) is a fair counterexample where CBAM's heatmap,
+while measurable, still lands mostly outside the ribcage. Full per-image
+numbers for all three seeds: [`docs/localization_no_cbam.csv`](docs/localization_no_cbam.csv) /
+[`docs/localization_cbam.csv`](docs/localization_cbam.csv) (seed 42),
+[`docs/localization_no_cbam_seed123.csv`](docs/localization_no_cbam_seed123.csv) /
+[`docs/localization_cbam_seed123.csv`](docs/localization_cbam_seed123.csv),
+[`docs/localization_no_cbam_seed2024.csv`](docs/localization_no_cbam_seed2024.csv) /
+[`docs/localization_cbam_seed2024.csv`](docs/localization_cbam_seed2024.csv).
 
 ## Limitations & Ethics
 
