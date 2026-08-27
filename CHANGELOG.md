@@ -6,6 +6,20 @@ build phase they correspond to.
 ## [Unreleased]
 - Deploy live demo to Hugging Face Spaces
 
+## v0.9 — CBAM attention module
+- `src/models/attention.py`: CBAM (channel + spatial attention, Woo et al.
+  ECCV 2018), gated behind `use_cbam` config flag on both the vision-only
+  and fusion models — added after reading the pneumonia-CXR literature
+  (see `docs/architecture.md#attention-module` for the reading list)
+- `src/explain/measure_lung_localization.py`: quantifies what fraction of
+  a Grad-CAM heatmap's energy falls inside the segmented lung field —
+  turns the manual shortcut-learning audit into a measurable number, used
+  to check whether CBAM actually improves localization and not just accuracy
+- Checkpoints now record `use_cbam` so evaluate/dashboard/explain scripts
+  rebuild the right architecture automatically before loading weights
+- 10 new tests (`test_attention.py`, `test_measure_lung_localization.py`,
+  plus CBAM cases added to `test_vision_model.py`)
+
 ## v0.8 — Dataset pivot to Chest X-ray Pneumonia
 - Switched primary dataset from NIH Chest X-ray14 (~45GB, 14-class) to Kaggle
   Chest X-ray Pneumonia (~2GB, binary) to fit local disk/compute constraints

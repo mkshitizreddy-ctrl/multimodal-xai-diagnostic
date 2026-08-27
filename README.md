@@ -6,9 +6,7 @@
 
 > Chest X-ray diagnosis with fused clinical metadata, and visual explanations (Grad-CAM + occlusion-based counterfactuals) so the model's reasoning is inspectable instead of a black box.
 
-🔗 **[Live Demo](https://PLACEHOLDER-multimodal-xai-diagnostic.streamlit.app)** *(redeploying — see note below)*
-
-> **Live demo status:** the previous Streamlit Community Cloud deployment was torn down (free-tier apps are reaped after inactivity) and the URL previously listed here (`…nupdkmnbnjfrfg2yuydlqx.streamlit.app`) now returns 404. The app is configured to redeploy on Streamlit Community Cloud from `master` of this repo, pulling the trained checkpoint from the public Hugging Face model repo `Kshitiz151/multimodal-xai-diagnostic-weights` — see [`docs/deployment.md`](docs/deployment.md) for the full walkthrough. Until the new URL is pasted in above, clicking the link will 404.
+🔗 **[Live Demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app)**
 
 ![Dashboard demo](docs/screenshots/dashboard_demo.png)
 
@@ -161,6 +159,7 @@ pytest tests/ -v
 - [x] Occlusion-based counterfactual explainer
 - [x] Streamlit dashboard
 - [x] Deploy live demo (Streamlit Community Cloud)
+- [ ] CBAM attention module (`use_cbam` config flag, added — retraining + before/after comparison pending)
 
 ## Results
 
@@ -183,6 +182,19 @@ jupyter notebook notebooks/02_fusion_ablation_results.ipynb
 ![Training curves](docs/training_curves.png)
 
 Fusion improves test AUROC by **+1.5 points** over vision-only. Since the tabular vitals (temperature, SpO2) are synthetically generated with a deliberate correlation to the label (see [`docs/ethics_statement.md`](docs/ethics_statement.md)), this result demonstrates that **the fusion architecture correctly learns to exploit correlated tabular signal when present** — a valid architecture-level finding, not a real clinical discovery. Both models substantially exceed random chance (0.5) and validation AUROC (~0.999), with the gap between val and test AUROC (~0.03) reflecting normal generalization variance on a modestly-sized (~5,800 image) test set.
+
+### CBAM attention (in progress)
+
+Added `src/models/attention.py` (CBAM — Woo et al., ECCV 2018) after reading the
+pneumonia-CXR literature, see [`docs/architecture.md`](docs/architecture.md#attention-module)
+for the reading list and reasoning. Gated behind `use_cbam` in
+`configs/vision_baseline.yaml` / `configs/fusion.yaml`, off by default so the
+results table above stays reproducible against the original baseline.
+
+Not retrained yet — next step is running both configs (`use_cbam: false` vs.
+`true`) and comparing test macro AUROC the same way the fusion ablation above
+does, plus `src/explain/measure_lung_localization.py` to check whether CBAM
+tightens Grad-CAM localization to the lung field, not just accuracy.
 
 ## Limitations & Ethics
 

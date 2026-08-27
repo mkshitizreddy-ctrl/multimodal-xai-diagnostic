@@ -35,6 +35,42 @@ metadata actually adds.
 - **Output:** 1024-dim feature vector after global average pooling.
 - **Grad-CAM target layer:** `features.denseblock4.denselayer16.conv2` — the last convolutional layer before pooling, standard choice for CNN-based Grad-CAM.
 
+## Attention module (CBAM)
+
+Added `src/models/attention.py` after reading the pneumonia-CXR literature (see the
+list below) — CBAM (Convolutional Block Attention Module, Woo et al., ECCV 2018)
+sits between the backbone and the classifier head, gated behind `use_cbam` in
+`configs/vision_baseline.yaml` / `configs/fusion.yaml` so it's easy to A/B against
+the original no-attention baseline.
+
+- **Channel attention:** avg-pool + max-pool each of the 1024 feature channels,
+  shared 2-layer MLP, sigmoid, rescale channels — "which channels matter."
+- **Spatial attention:** pool across channels, 7×7 conv, sigmoid, rescale spatially
+  — "which pixels matter." Applied after channel attention (the ordering CBAM's
+  own ablation study found best).
+- **Why this specifically, and not a different upgrade:** several 2024–2026 papers
+  report CBAM/SE attention on this exact backbone + dataset combination (DenseNet-121
+  on the Kaggle Chest X-ray Pneumonia set, the same one this project uses) improving
+  both classification metrics *and* Grad-CAM localization quality — heatmaps
+  concentrate more tightly on pathological lung regions instead of spreading across
+  the whole image. That second point is what made this worth trying here
+  specifically: it's a direct, literature-backed extension of the shortcut-learning
+  finding in `docs/ethics_statement.md`, not just an accuracy play. Full reading
+  notes in `docs/paper_notes.md`; papers read:
+    - Dey, "CBAM-Enhanced DenseNet121 for Multi-Class Chest X-Ray Classification with Grad-CAM Explainability" (2026) — [arxiv.org/abs/2604.12305](https://arxiv.org/abs/2604.12305) — closest paper to this exact stack (DenseNet121 + CBAM + Grad-CAM on CXR pneumonia)
+    - "Enhanced X-ray image classification for pneumonia detection using deep learning based CBAM and SE mechanisms," ScienceDirect (2025) — [doi link](https://www.sciencedirect.com/science/article/pii/S2666521225001036) — CBAM vs. SE comparison, argument for CBAM's spatial term specifically
+    - "An Enhanced Deep Learning Framework for Pneumonia Detection in Chest X-rays," SN Computer Science (2025) — [link.springer.com](https://link.springer.com/article/10.1007/s42979-025-04017-x) — DenseNet-121+CBAM matching heavier ensembles at a fraction of the parameters
+    - Shahi & Bagale, "Weakly Supervised Pneumonia Localization from Chest X-Rays Using Deep Neural Network and Grad-CAM Explanations" (2025) — [arxiv.org/pdf/2511.00456v1](https://arxiv.org/pdf/2511.00456v1) — the paper behind `src/explain/measure_lung_localization.py`; argues for measuring localization quality, not just eyeballing heatmaps
+    - "Explainable Deep Learning in Medical Imaging: Brain Tumor and Pneumonia Detection" (2025) — [arxiv.org/html/2510.21823](https://arxiv.org/html/2510.21823) — DenseNet121 vs ResNet50 on the same ~5,860-image Kaggle set, independent confirmation of backbone choice
+    - "Pneumonia Image Classification Using DenseNet Architecture," MDPI (2024) — [mdpi.com/2078-2489/15/10/611](https://www.mdpi.com/2078-2489/15/10/611) — DenseNet121/169/201 baseline accuracy comparison on the exact same dataset, no attention mechanism (used as a sanity check for our no-CBAM baseline numbers)
+- **Why CBAM over plain SE:** SE-Net (the lighter-weight alternative some of the
+  above papers use instead) only does channel attention. CBAM's extra
+  spatial-attention term is what actually helps here, since the whole point is
+  tightening *where* the model looks — a channel-only mechanism wouldn't touch that.
+- **Cost:** negligible — CBAM adds ~2.1M parameters to a 121-layer, ~7M-parameter
+  backbone, no architectural surgery needed since it's inserted between two
+  existing modules.
+
 ## Tabular branch
 
 - **Input features:** Patient Age and Temperature/SpO2 (numeric, standardized), Patient Gender (categorical, integer-encoded). **Age, Temperature, and SpO2 are synthetically generated** — see `data/scripts/prepare_pneumonia_dataset.py` and `docs/ethics_statement.md`.
