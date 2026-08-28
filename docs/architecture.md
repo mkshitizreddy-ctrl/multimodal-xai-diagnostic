@@ -101,11 +101,18 @@ trained model + input image
         └─▶ confidence before/after comparison
 ```
 
-Both explainability modules operate on the vision-only baseline model
-currently (they need a single-image forward pass; extending them to the
-fusion model's dual-input forward pass is a natural next step — see
-`ChestXrayFusionModel.get_target_layer()`, which already exposes the same
-target layer name for this purpose).
+Both explainability modules originally only operated on the vision-only
+baseline model (they need a single-image forward pass; the fusion model
+takes image + tabular). Closed via `src/explain/fusion_wrapper.py` —
+`FusionModelImageWrapper` fixes one patient's tabular vector as a buffer
+and exposes a single-input `forward(image)`, so `gradcam.py` and
+`counterfactual.py` both work against the fusion model completely
+unmodified. `src/explain/generate_fusion_examples.py` mirrors
+`generate_examples.py` but produces both Grad-CAM and counterfactual output
+per test image, using that image's real tabular vector (not a random one) —
+7 tests in `tests/test_fusion_wrapper.py` cover shape correctness, that the
+wrapper doesn't change the model's actual output, and that gradients
+genuinely flow through it (not just a shape-compatible no-op).
 
 ## Dashboard design
 
