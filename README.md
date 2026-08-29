@@ -300,6 +300,52 @@ numbers for all three seeds: [`docs/localization_no_cbam.csv`](docs/localization
 [`docs/localization_no_cbam_seed2024.csv`](docs/localization_no_cbam_seed2024.csv) /
 [`docs/localization_cbam_seed2024.csv`](docs/localization_cbam_seed2024.csv).
 
+### CBAM on the fusion model — a genuinely different result
+
+Explainability was extended to the fusion model too
+(`src/explain/fusion_wrapper.py` — see
+[`docs/architecture.md`](docs/architecture.md) for how), so the same
+3-seed CBAM comparison was repeated on fusion instead of just vision. The
+result does **not** match the vision-only finding, and that mismatch is
+itself the interesting part.
+
+**Grad-CAM lung-energy fraction (CBAM − No CBAM):**
+
+| Seed | No CBAM | CBAM | Diff |
+|---|---|---|---|
+| 42 | 0.451 | 0.516 | +0.065 |
+| 123 | 0.489 | 0.393 | −0.096 |
+| 2024 | 0.444 | 0.476 | +0.032 |
+| **Mean ± std** | — | — | **+0.0003 ± 0.085** |
+
+One-sample t-test (n=3 seeds): t=0.007, **p=0.995**
+
+**Test macro AUROC (CBAM − No CBAM):**
+
+| Seed | No CBAM | CBAM | Diff |
+|---|---|---|---|
+| 42 | 0.9935 | 0.9921 | −0.0014 |
+| 123 | 0.9795 | 0.9915 | +0.0120 |
+| 2024 | 0.9816 | 0.9899 | +0.0083 |
+| **Mean ± std** | 0.9849 ± 0.0076 | 0.9912 ± 0.0011 | **+0.0063 ± 0.0071** |
+
+One-sample t-test (n=3 seeds): t=1.58, **p=0.26**
+
+**The honest read:** on fusion, CBAM's effect on localization is essentially
+a wash — the three seeds nearly perfectly cancel out (mean ≈ 0.0003),
+unlike vision where there was at least a noisy positive trend. Accuracy
+trends mildly *positive* here (opposite direction from vision's mild
+negative trend), though still not significant at n=3. Put plainly: **CBAM's
+effect appears to depend on which model it's attached to** — the vision-only
+finding does not generalize to the fusion model, and this project isn't
+going to pretend otherwise just because a consistent story would look
+cleaner. Full per-image numbers: [`docs/localization_fusion_no_cbam_seed42.csv`](docs/localization_fusion_no_cbam_seed42.csv) /
+[`docs/localization_fusion_cbam_seed42.csv`](docs/localization_fusion_cbam_seed42.csv),
+[`docs/localization_fusion_no_cbam_seed123.csv`](docs/localization_fusion_no_cbam_seed123.csv) /
+[`docs/localization_fusion_cbam_seed123.csv`](docs/localization_fusion_cbam_seed123.csv),
+[`docs/localization_fusion_no_cbam_seed2024.csv`](docs/localization_fusion_no_cbam_seed2024.csv) /
+[`docs/localization_fusion_cbam_seed2024.csv`](docs/localization_fusion_cbam_seed2024.csv).
+
 ## Limitations & Ethics
 
 This is a research/portfolio prototype trained on a public dataset and is **not validated for clinical use**. See [`docs/ethics_statement.md`](docs/ethics_statement.md) for a full discussion of dataset limitations, explainability caveats, and intended use.
