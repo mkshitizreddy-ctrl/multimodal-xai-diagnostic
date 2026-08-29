@@ -114,6 +114,18 @@ per test image, using that image's real tabular vector (not a random one) —
 wrapper doesn't change the model's actual output, and that gradients
 genuinely flow through it (not just a shape-compatible no-op).
 
+`src/explain/measure_lung_localization.py` also now works on both model
+types — it auto-detects which checkpoint it's given (fusion checkpoints
+store a `tabular_features` key that vision-only ones don't, see
+`is_fusion_checkpoint()`) rather than requiring a manual flag, and for
+fusion builds a fresh `FusionModelImageWrapper` per test image so each
+image is explained using that specific patient's real tabular vector, not
+one shared/stale vector reused across the whole sample. Covered by a
+subprocess-based integration test in `tests/test_measure_lung_localization.py`
+that builds a real (tiny, untrained) fusion checkpoint from scratch and
+runs the actual script end to end, not just its internal pieces in
+isolation.
+
 ## Dashboard design
 
 `dashboard/app.py` uses a dark reading-room palette instead of the default
