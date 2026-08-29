@@ -16,6 +16,8 @@ constant below (or the HF_MODEL_REPO_ID env var / Streamlit secret) to your
 own repo once you've uploaded a checkpoint there.
 """
 
+import base64
+import io
 import os
 import sys
 from pathlib import Path
@@ -38,6 +40,165 @@ from src.explain.gradcam import ChestXrayExplainer
 from src.models.vision_encoder import ChestXrayVisionModel
 
 st.set_page_config(page_title="Explainable Chest X-ray Diagnosis", layout="wide")
+
+# Palette lives here as the single source of truth (also referenced in
+# .streamlit/config.toml for Streamlit's own native widgets). Kept as a
+# dict rather than scattered hex literals so the Grad-CAM/probability-bar
+# colors below stay in sync with the CSS if this ever changes.
+PALETTE = {
+    "bg": "#0B0D0F",
+    "panel": "#15181C",
+    "text": "#E7E9EC",
+    "muted": "#8B92A0",
+    "accent": "#F0A83C",  # amber - interactive, in-range predictions
+    "finding": "#E4483C",  # clinical red - reserved for an actual positive finding
+    "hairline": "#22262C",
+}
+
+
+def _inject_theme_css():
+    """Custom CSS on top of the base Streamlit dark theme (config.toml) -
+    dark reading-room palette, IBM Plex Mono for technical readouts /
+    Inter for prose, and the corner-bracket 'viewport' framing used
+    throughout (see docs/architecture.md#dashboard-design for why)."""
+    st.markdown(
+        f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+        html, body, [class*="css"], .stMarkdown, p, span, label {{
+            font-family: 'Inter', sans-serif;
+        }}
+
+        .stApp {{
+            background-color: {PALETTE["bg"]};
+        }}
+
+        /* Technical readout bar - model/checkpoint metadata, styled like
+        a PACS viewer's study header rather than a generic app title. */
+        .study-header {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.78rem;
+            color: {PALETTE["muted"]};
+            background: {PALETTE["panel"]};
+            border: 1px solid {PALETTE["hairline"]};
+            border-bottom: 2px solid {PALETTE["accent"]};
+            padding: 10px 18px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px 24px;
+            letter-spacing: 0.03em;
+            margin-bottom: 1.6rem;
+        }}
+        .study-header .field .k {{
+            color: {PALETTE["muted"]};
+        }}
+        .study-header .field .v {{
+            color: {PALETTE["accent"]};
+            font-weight: 600;
+        }}
+
+        h1.app-title {{
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1.7rem;
+            color: {PALETTE["text"]};
+            margin-bottom: 0.2rem;
+        }}
+
+        /* Corner-bracket image framing - the signature element. Every
+        image the app shows (upload, Grad-CAM, counterfactual) goes
+        through render_viewport() below so this stays consistent. */
+        .viewport {{
+            position: relative;
+            background: #000;
+            padding: 18px;
+            border: 1px solid {PALETTE["hairline"]};
+        }}
+        .viewport img {{
+            width: 100%;
+            display: block;
+        }}
+        .viewport .corner {{
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-color: {PALETTE["accent"]};
+            border-style: solid;
+            border-width: 0;
+        }}
+        .viewport .corner.tl {{ top: 5px; left: 5px; border-top-width: 2px; border-left-width: 2px; }}
+        .viewport .corner.tr {{ top: 5px; right: 5px; border-top-width: 2px; border-right-width: 2px; }}
+        .viewport .corner.bl {{ bottom: 5px; left: 5px; border-bottom-width: 2px; border-left-width: 2px; }}
+        .viewport .corner.br {{ bottom: 5px; right: 5px; border-bottom-width: 2px; border-right-width: 2px; }}
+
+        .viewport-caption {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            color: {PALETTE["muted"]};
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            margin-top: 8px;
+        }}
+        .viewport-caption .metric {{
+            color: {PALETTE["accent"]};
+        }}
+
+        /* Section labels, mono like the study header, to keep technical
+        readouts visually distinct from explanatory prose. */
+        .section-label {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+            color: {PALETTE["muted"]};
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-bottom: 1px solid {PALETTE["hairline"]};
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+        }}
+
+        div[data-testid="stFileUploader"] section {{
+            background-color: {PALETTE["panel"]};
+            border: 1px dashed {PALETTE["hairline"]};
+        }}
+
+        div[data-testid="stAlert"] {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _pil_to_base64(image: Image.Image) -> str:
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def render_viewport(image, caption: str, metric: str | None = None):
+    """Renders an image inside the corner-bracket 'viewport' frame, with
+    a mono caption underneath. `image` can be a PIL Image or a numpy
+    array (uint8 HxWx3) - both come up in this file (uploaded PIL image
+    vs. the Grad-CAM/counterfactual overlays, which are numpy arrays)."""
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    b64 = _pil_to_base64(image)
+    metric_html = f' <span class="metric">{metric}</span>' if metric else ""
+    st.markdown(
+        f"""
+        <div class="viewport">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <img src="data:image/png;base64,{b64}" />
+        </div>
+        <div class="viewport-caption">{caption}{metric_html}</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 VISION_CHECKPOINT = "checkpoints/vision_baseline/best_model.pth"
 FUSION_CHECKPOINT = "checkpoints/fusion/best_model.pth"
@@ -142,26 +303,50 @@ def render_probability_chart(classes: list[str], probs: np.ndarray) -> go.Figure
             x=probs[order],
             y=[classes[i] for i in order],
             orientation="h",
-            marker_color=["crimson" if p >= 0.5 else "steelblue" for p in probs[order]],
+            marker_color=[
+                PALETTE["finding"] if p >= 0.5 else PALETTE["accent"] for p in probs[order]
+            ],
         )
     )
-    fig.add_vline(x=0.5, line_dash="dash", line_color="gray")
+    fig.add_vline(x=0.5, line_dash="dash", line_color=PALETTE["muted"])
     fig.update_layout(
         xaxis_title="Predicted probability",
         height=450,
         margin=dict(l=10, r=10, t=30, b=10),
+        paper_bgcolor=PALETTE["bg"],
+        plot_bgcolor=PALETTE["bg"],
+        font=dict(family="IBM Plex Mono, monospace", color=PALETTE["muted"], size=12),
+        xaxis=dict(gridcolor=PALETTE["hairline"], zerolinecolor=PALETTE["hairline"]),
+        yaxis=dict(gridcolor=PALETTE["hairline"]),
     )
     return fig
 
 
 def main():
-    st.title("🩺 Explainable Chest X-ray Diagnosis")
+    _inject_theme_css()
+
+    model, classes, device, is_trained = load_vision_model()
+
+    checkpoint_status = "trained checkpoint" if is_trained else "random weights (demo mode)"
+    cbam_status = "on" if getattr(model, "use_cbam", False) else "off"
+
+    st.markdown(
+        f"""
+        <div class="study-header">
+            <div class="field"><span class="k">MODEL&nbsp;</span><span class="v">densenet121</span></div>
+            <div class="field"><span class="k">CBAM&nbsp;</span><span class="v">{cbam_status}</span></div>
+            <div class="field"><span class="k">WEIGHTS&nbsp;</span><span class="v">{checkpoint_status}</span></div>
+            <div class="field"><span class="k">CLASSES&nbsp;</span><span class="v">{len(classes)}</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<h1 class="app-title">Explainable Chest X-ray Diagnosis</h1>', unsafe_allow_html=True)
     st.caption(
         "Research/portfolio prototype — not validated for clinical use. "
         "See the README for dataset, architecture, and limitations."
     )
-
-    model, classes, device, is_trained = load_vision_model()
 
     if not is_trained:
         st.warning(
@@ -184,22 +369,30 @@ def main():
 
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.image(pil_image, caption="Uploaded X-ray", width='stretch')
+        render_viewport(
+            pil_image.convert("RGB"),
+            "uploaded study",
+            metric=f"{pil_image.size[0]}×{pil_image.size[1]}",
+        )
 
     with torch.no_grad():
         logits = model(image_tensor.unsqueeze(0).to(device))
         probs = torch.sigmoid(logits)[0].cpu().numpy()
 
     with col2:
-        st.subheader("Predicted probabilities")
-        st.plotly_chart(render_probability_chart(classes, probs), width='stretch')
+        st.markdown('<div class="section-label">Predicted probabilities</div>', unsafe_allow_html=True)
+        st.plotly_chart(render_probability_chart(classes, probs), width="stretch")
 
     top_class_idx = int(np.argmax(probs))
     top_class_name = classes[top_class_idx]
     top_prob = float(probs[top_class_idx])
 
     st.divider()
-    st.subheader(f"Explanation for top prediction: **{top_class_name}** ({top_prob:.1%})")
+    st.markdown(
+        f'<div class="section-label">Explanation for top prediction: '
+        f'<span style="color:{PALETTE["accent"]}">{top_class_name}</span> ({top_prob:.1%})</div>',
+        unsafe_allow_html=True,
+    )
 
     explain_col1, explain_col2 = st.columns(2)
 
@@ -207,20 +400,18 @@ def main():
     overlay, _heatmap = gradcam_explainer.explain(image_tensor, top_class_idx)
 
     with explain_col1:
-        st.markdown("**Grad-CAM** — which regions drove this prediction")
-        st.image(overlay, width='stretch')
+        render_viewport(overlay, "grad-cam — regions driving this prediction")
 
     cf_explainer = OcclusionCounterfactualExplainer(model, gradcam_explainer, device=device)
     result = cf_explainer.generate(image_tensor, top_class_idx, top_class_name)
 
     with explain_col2:
-        st.markdown("**Counterfactual** — confidence after masking that region")
         figure = make_side_by_side_figure(result)
-        st.image(figure, width='stretch')
-        flip_msg = "🔻 Prediction flipped!" if result.flipped else "No flip at 0.5 threshold"
-        st.caption(
-            f"{result.original_probability:.1%} → {result.counterfactual_probability:.1%}  "
-            f"({flip_msg})"
+        flip_msg = "flipped" if result.flipped else "no flip @ 0.5"
+        render_viewport(
+            figure,
+            "counterfactual — confidence after masking top region",
+            metric=f"{result.original_probability:.0%} → {result.counterfactual_probability:.0%} ({flip_msg})",
         )
 
 
