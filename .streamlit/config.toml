@@ -1,4 +1,4 @@
-# Streamlit app config ??? controls both local streamlit run and the
+# Streamlit app config - controls both local streamlit run and the
 # Streamlit Community Cloud deployment. Lives here (committed) so the
 # deployed app picks up identical behavior to local dev, without
 # toggling flags in the SCC UI every redeploy.
@@ -11,22 +11,26 @@ headless = true
 port = 8501
 
 [browser]
-# Don't phone home for usage stats on the deployed instance ??? the demo
+# Don't phone home for usage stats on the deployed instance - the demo
 # is public-facing and there's no need to leak visitor IPs to Streamlit's
 # telemetry just for a portfolio link.
 gatherUsageStats = false
 
 [theme]
-# Match the README's UI screenshot / dark-clinical aesthetic.
-base = "light"
-primaryColor = "#E11D48"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F1F5F9"
-textColor = "#0F172A"
+# Dark reading-room palette, closer to how an actual PACS/DICOM viewer
+# looks than a generic light SaaS dashboard - see docs/architecture.md
+# for the reasoning. Most of the visual work actually happens in custom
+# CSS injected in dashboard/app.py (fonts, viewport framing); these are
+# just the base tokens Streamlit's own widgets pick up.
+base = "dark"
+primaryColor = "#F0A83C"
+backgroundColor = "#0B0D0F"
+secondaryBackgroundColor = "#15181C"
+textColor = "#E7E9EC"
 font = "sans serif"
 
 [client]
-# Show error tracebacks in the deployed UI when something breaks ??? the
+# Show error tracebacks in the deployed UI when something breaks - the
 # app's whole point is being inspectable, so the deploy should be too.
 showErrorDetails = true
 toolbarMode = "minimal"
