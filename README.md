@@ -114,7 +114,7 @@ streamlit run dashboard/app.py
 
 It runs out of the box even before training — if no checkpoint is found at `checkpoints/vision_baseline/best_model.pth`, it falls back to a randomly-initialized model with a clearly visible warning banner, so the UI is explorable immediately. Once you've trained the vision baseline, predictions become meaningful automatically — no code changes needed.
 
-**Deploying a live demo:** free via [Streamlit Community Cloud](https://streamlit.io/cloud), with the trained checkpoint hosted on a free Hugging Face Hub model repo — see [`docs/deployment.md`](docs/deployment.md) for the full walkthrough (Hugging Face Spaces now requires a paid plan for Streamlit apps, so this repo doesn't use that path). Link the live demo at the top of this README once deployed.
+**Deploying a live demo:** free via [Streamlit Community Cloud](https://streamlit.io/cloud), with the trained checkpoint hosted on a free Hugging Face Hub model repo — see [`docs/deployment.md`](docs/deployment.md) for the full walkthrough (Hugging Face Spaces now requires a paid plan for Streamlit apps, so this repo doesn't use that path).
 
 ## Usage
 
@@ -147,6 +147,22 @@ View training curves and per-class AUROC in `notebooks/01_vision_baseline_result
 Run the test suite with:
 ```bash
 pytest tests/ -v
+```
+
+### Comparing with vs. without CBAM
+
+Once you've trained a baseline (`use_cbam: false` in `configs/vision_baseline.yaml`), train again with `use_cbam: true` (the current default) and compare both accuracy and Grad-CAM localization quality:
+
+```bash
+# Evaluate both checkpoints' test macro AUROC
+python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model_no_cbam.pth
+python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model.pth
+
+# Compare what fraction of each model's Grad-CAM heatmap energy falls inside
+# the segmented lung field — the localization claim from the papers in
+# docs/paper_notes.md, made measurable instead of eyeballed
+python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model_no_cbam.pth --output-csv docs/localization_no_cbam.csv
+python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/localization_cbam.csv
 ```
 
 ## Roadmap
@@ -183,18 +199,44 @@ jupyter notebook notebooks/02_fusion_ablation_results.ipynb
 
 Fusion improves test AUROC by **+1.5 points** over vision-only. Since the tabular vitals (temperature, SpO2) are synthetically generated with a deliberate correlation to the label (see [`docs/ethics_statement.md`](docs/ethics_statement.md)), this result demonstrates that **the fusion architecture correctly learns to exploit correlated tabular signal when present** — a valid architecture-level finding, not a real clinical discovery. Both models substantially exceed random chance (0.5) and validation AUROC (~0.999), with the gap between val and test AUROC (~0.03) reflecting normal generalization variance on a modestly-sized (~5,800 image) test set.
 
-### CBAM attention (in progress)
+### CBAM attention — what it adds, and why
 
-Added `src/models/attention.py` (CBAM — Woo et al., ECCV 2018) after reading the
-pneumonia-CXR literature, see [`docs/architecture.md`](docs/architecture.md#attention-module)
-for the reading list and reasoning. Gated behind `use_cbam` in
-`configs/vision_baseline.yaml` / `configs/fusion.yaml`, off by default so the
-results table above stays reproducible against the original baseline.
+**What it is:** `src/models/attention.py` implements CBAM (Convolutional Block
+Attention Module, Woo et al., ECCV 2018) — a small, cheap module inserted
+between the DenseNet-121 backbone and the classifier head. It does two things
+to the feature map before classification:
+1. **Channel attention** — decides which of the 1024 feature channels matter more for this input, and rescales them.
+2. **Spatial attention** — decides which *pixels* matter more, and rescales those.
 
-Not retrained yet — next step is running both configs (`use_cbam: false` vs.
-`true`) and comparing test macro AUROC the same way the fusion ablation above
-does, plus `src/explain/measure_lung_localization.py` to check whether CBAM
-tightens Grad-CAM localization to the lung field, not just accuracy.
+Total cost: ~2.1M extra parameters on a ~7M-parameter backbone. No change to
+input/output shapes, so it's a drop-in addition — enabled or disabled purely
+via the `use_cbam` config flag, with no other code changes needed.
+
+**Why it was added:** this wasn't a generic "add an attention mechanism"
+upgrade. Reading the pneumonia chest X-ray literature (6 papers, 2024–2026,
+full notes in [`docs/paper_notes.md`](docs/paper_notes.md)) turned up a
+specific, repeated finding on this exact backbone + dataset combination:
+CBAM doesn't just improve classification accuracy, it also makes Grad-CAM
+heatmaps concentrate more tightly on actual pathological lung regions
+instead of drifting to shoulders, image borders, or annotations. That second
+part is what made it worth adding *here specifically* — it's a direct,
+literature-backed extension of the shortcut-learning problem already
+documented in [`docs/ethics_statement.md`](docs/ethics_statement.md), not
+just a routine accuracy play. CBAM was picked over the lighter SE-Net
+alternative (which some of the same papers also use) precisely because
+SE only does channel attention — the spatial term is what actually
+targets *where* the model looks, which is the whole point here.
+
+**Current status:** implemented, tested (10 tests across `test_attention.py`
+and the CBAM cases in `test_vision_model.py`), and `use_cbam: true` is now
+the default in both `configs/vision_baseline.yaml` and `configs/fusion.yaml`.
+**Not yet retrained or benchmarked** — the results table above is still from
+the original no-CBAM run. `src/explain/measure_lung_localization.py` (also
+new) exists specifically to check the localization claim quantitatively —
+percentage of Grad-CAM heatmap energy falling inside vs. outside the
+segmented lung field — rather than eyeballing before/after heatmap images.
+See the [Comparing with vs. without CBAM](#comparing-with-vs-without-cbam)
+commands above to reproduce this.
 
 ## Limitations & Ethics
 
