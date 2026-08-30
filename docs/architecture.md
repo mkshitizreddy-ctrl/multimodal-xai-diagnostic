@@ -107,6 +107,30 @@ fusion model's dual-input forward pass is a natural next step — see
 `ChestXrayFusionModel.get_target_layer()`, which already exposes the same
 target layer name for this purpose).
 
+## Dashboard design
+
+`dashboard/app.py` uses a dark reading-room palette instead of the default
+Streamlit light theme — closer to how an actual PACS/DICOM viewer looks than
+a generic SaaS dashboard, since that's the vernacular this tool actually
+belongs to.
+
+- **Palette:** near-black background (`#0B0D0F`), amber accent (`#F0A83C`)
+  for interactive/in-range elements, clinical red (`#E4483C`) reserved
+  *only* for an actual positive prediction — not used decoratively anywhere
+  else, so its appearance always means something.
+- **Type:** IBM Plex Mono for anything technical (probabilities, the study
+  header bar, image captions), Inter for prose/explanations. The split is
+  functional, not decorative — mono marks measured data, sans marks text
+  written to be read.
+- **Study header:** a technical readout bar (model name, CBAM on/off,
+  checkpoint status, class count) in place of a generic app title, styled
+  like a PACS viewer's study metadata strip.
+- **Viewport framing:** every image the app shows (uploaded X-ray, Grad-CAM
+  overlay, counterfactual comparison) renders through `render_viewport()`,
+  which wraps it in a corner-bracket frame — like a viewfinder or DICOM
+  viewport — instead of a plain `st.image()`. This is the one deliberately
+  "designed" element; everything else stays quiet around it.
+
 ## Training
 
 - **Loss:** `BCEWithLogitsLoss` (binary — the codebase is written generically for multi-label, so the same training loop handles this single-class binary case without modification).
