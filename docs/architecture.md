@@ -156,6 +156,48 @@ belongs to.
 - **Optimizer:** AdamW, cosine LR schedule, early stopping on validation macro AUROC.
 - **Splits:** patient-level train/val split (original test split preserved exactly as the dataset curators provided it — already patient-disjoint from train). Pneumonia-positive filenames encode a person ID we group by; normal-class images lack an equivalent ID and are conservatively treated as individually unique patients — see `docs/ethics_statement.md`.
 
+## Attention-consistency training (experimental)
+
+`src/train_attention_consistency.py` is a second training path, alongside
+`src/train.py`, for the same DenseNet-121+CBAM architecture — it adds a
+loss term that directly penalizes CBAM's own spatial attention map for
+falling outside the segmented lung field, rather than only *measuring*
+this after training the way `measure_lung_localization.py` does. See
+`src/models/attention_consistency_loss.py`'s docstring for the exact loss
+definition — it's deliberately defined as `1 - lung_energy_fraction`,
+directly optimizing the same quantity the project already uses to
+evaluate localization, not a different proxy that happens to point the
+same direction.
+
+Pipeline: `data/scripts/precompute_lung_masks.py` caches lung
+segmentation masks at 7×7 resolution (matching CBAM's attention map size
+for a 224×224 input) for the train/val splits, since running the
+segmentation model fresh every batch of every epoch would be
+prohibitively slow. `src/data/lung_mask_dataset.py`'s
+`LungMaskAugmentedDataset` wraps `ChestXrayDataset` to also return the
+cached mask — implemented as a separate wrapper class rather than
+modifying `ChestXrayDataset` itself, since 50+ existing tests and every
+other script in the project unpack a 3-tuple from it.
+
+**A tradeoff stated plainly, not hidden:** normal training applies
+`RandomHorizontalFlip` and `RandomRotation(degrees=5)`. Precomputed masks
+can't follow that per-batch randomness, so this training path disables
+that augmentation entirely (`train=False` transform, even for the train
+split) to keep masks spatially aligned with the images they're
+supervising. A more complete version of this idea would apply matching
+spatial transforms to image and mask together — left as future work, not
+built here.
+
+**Status: implemented and verified to run correctly end-to-end (real
+segmentation model, real training loop, checkpoint loads correctly in
+every existing script — evaluate.py, measure_lung_localization.py — with
+zero modification needed to any of them), using synthetic data. Not yet
+trained on the real dataset** — that requires real GPU time this project
+doesn't have access to in the environment this was built in. 13 new tests
+across `test_vision_model.py`, `test_attention_consistency_loss.py`, and
+`test_lung_mask_dataset.py` cover the pieces; see the README for the
+commands to actually run this and get a real result.
+
 ## Dataset history
 
 This project originally targeted the full **NIH Chest X-ray14** dataset (14-class multi-label, ~45GB, real patient age/gender/view-position metadata). It was switched to the smaller **Chest X-ray Pneumonia** dataset (binary, ~2GB) to fit local disk/compute constraints, with synthetic clinical vitals added to preserve the multimodal fusion architecture. The original NIH config is kept at `configs/data_nih_legacy.yaml` and `data/scripts/download_nih.py` / `preprocess.py` for reference — the codebase's generic design (dataset, model, and training code are all parameterized by the class list and tabular feature list) meant switching datasets required no changes to `src/data/dataset.py`, `src/models/`, `src/explain/`, or the training loops themselves — only `configs/data.yaml` and a new data-preparation script.

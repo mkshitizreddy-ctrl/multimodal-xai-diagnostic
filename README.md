@@ -165,6 +165,24 @@ python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_
 python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/localization_cbam.csv
 ```
 
+### Attention-consistency training (built, not yet run on real data)
+
+Beyond just measuring CBAM's localization after training, `src/train_attention_consistency.py` trains *toward* it directly — see [`docs/architecture.md`](docs/architecture.md#attention-consistency-training-experimental) for the full design and the tradeoffs involved. Implemented and verified end-to-end with synthetic data (13 new tests), but not yet trained on the real dataset — that needs real GPU time. To actually run it:
+
+```bash
+# One-time: cache lung masks for train+val (skip test — these masks are
+# for a training loss, not evaluation)
+python data/scripts/precompute_lung_masks.py --train-config configs/vision_attention_consistency.yaml
+
+# Train
+python src/train_attention_consistency.py --train-config configs/vision_attention_consistency.yaml
+
+# The resulting checkpoint works with every existing script unmodified —
+# same evaluate.py and measure_lung_localization.py used above
+python src/evaluate.py --checkpoint checkpoints/vision_attention_consistency/best_model.pth
+python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_attention_consistency/best_model.pth --output-csv docs/localization_attention_consistency.csv
+```
+
 ## Roadmap
 
 - [x] Repo scaffold, license, dependencies
@@ -176,6 +194,7 @@ python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_
 - [x] Streamlit dashboard
 - [x] Deploy live demo (Streamlit Community Cloud)
 - [x] CBAM attention module (retrained + benchmarked — see [Results](#results))
+- [ ] Attention-consistency training (implemented, verified end-to-end on synthetic data, not yet run on the real dataset)
 
 ## Results
 
