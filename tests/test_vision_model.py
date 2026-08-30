@@ -77,3 +77,47 @@ def test_cbam_off_by_default_is_identity():
     model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False)
     assert isinstance(model.cbam, nn.Identity)
     assert list(model.cbam.parameters()) == []
+
+
+def test_forward_with_attention_map_matches_plain_forward():
+    """forward_with_attention_map() must be a strict superset of
+    forward() — same logits, just with the attention map alongside. If
+    these diverged, the training script using this method would be
+    optimizing a different model path than what actually gets deployed."""
+    model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False, use_cbam=True)
+    model.eval()
+    x = torch.randn(BATCH_SIZE, 3, 224, 224)
+
+    with torch.no_grad():
+        plain_logits = model(x)
+        augmented_logits, attention_map = model.forward_with_attention_map(x)
+
+    assert torch.allclose(plain_logits, augmented_logits, atol=1e-6)
+    assert attention_map.shape == (BATCH_SIZE, 1, 7, 7)
+    assert attention_map.min() >= 0.0 and attention_map.max() <= 1.0
+
+
+def test_forward_with_attention_map_returns_none_when_cbam_off():
+    model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False, use_cbam=False)
+    x = torch.randn(BATCH_SIZE, 3, 224, 224)
+    _logits, attention_map = model.forward_with_attention_map(x)
+    assert attention_map is None
+
+
+def test_forward_with_attention_map_gradients_flow_to_cbam():
+    model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False, use_cbam=True)
+    x = torch.randn(BATCH_SIZE, 3, 224, 224)
+    logits, attention_map = model.forward_with_attention_map(x)
+
+    # A loss that only depends on the attention map (not the classification
+    # logits at all) should still be able to backprop into CBAM's
+    # parameters — this is the actual usage pattern in
+    # src/train_attention_consistency.py, where the consistency loss is
+    # computed purely from the attention map against a lung mask.
+    fake_lung_mask = torch.ones_like(attention_map)
+    consistency_loss = ((attention_map - fake_lung_mask) ** 2).mean()
+    consistency_loss.backward()
+
+    grad_norms = [p.grad.norm().item() for p in model.cbam.parameters() if p.grad is not None]
+    assert len(grad_norms) > 0
+    assert any(g > 0 for g in grad_norms)

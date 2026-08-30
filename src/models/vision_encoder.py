@@ -71,6 +71,27 @@ class ChestXrayVisionModel(nn.Module):
         feats = self.cbam(feats)
         return self.classifier(feats)
 
+    def forward_with_attention_map(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Like forward(), but also returns CBAM's own spatial attention
+        map (shape [B,1,7,7] for 224x224 input) — used by
+        src/train_attention_consistency.py to regularize the model's
+        attention toward the segmented lung field, not just measure it
+        after the fact like measure_lung_localization.py does. Returns
+        (logits, None) when use_cbam=False, since there's no attention map
+        to regularize in that case — callers should skip the consistency
+        loss term when this happens, not treat it as an error.
+
+        Duplicates the channel-attention computation once (also done
+        inside self.cbam(feats) below) — a minor inefficiency, acceptable
+        for training-time overhead, kept separate from forward() so the
+        normal inference path stays untouched and exactly as fast as before.
+        """
+        feats = self.features(x)
+        attention_map = self.cbam.get_spatial_attention_map(feats) if self.use_cbam else None
+        feats = self.cbam(feats)
+        logits = self.classifier(feats)
+        return logits, attention_map
+
     def get_target_layer(self) -> nn.Module:
         """Resolve gradcam_target_layer string into the actual module,
         for use with the Grad-CAM explainability module.
