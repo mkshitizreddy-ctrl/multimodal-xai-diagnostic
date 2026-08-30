@@ -346,6 +346,25 @@ cleaner. Full per-image numbers: [`docs/localization_fusion_no_cbam_seed42.csv`]
 [`docs/localization_fusion_no_cbam_seed2024.csv`](docs/localization_fusion_no_cbam_seed2024.csv) /
 [`docs/localization_fusion_cbam_seed2024.csv`](docs/localization_fusion_cbam_seed2024.csv).
 
+Visual example — index 272 (the same image used in the vision-side example
+above), fusion model with CBAM:
+
+| Grad-CAM | Counterfactual |
+|---|---|
+| ![Fusion Grad-CAM](docs/gradcam_examples_fusion/example_272_Pneumonia_0.98_gradcam.png) | ![Fusion counterfactual](docs/gradcam_examples_fusion/example_272_Pneumonia_0.98_counterfactual.png) |
+
+The heatmap sits in the lower-right chest with rib shadows visible through
+it — reasonably contained within lung tissue. The counterfactual is the
+more interesting part: masking the top-attended region only drops
+confidence from 0.98 to 0.95 (no flip). For the vision-only model, a small
+drop like that would usually suggest the model wasn't strongly relying on
+that region. But **that read doesn't transfer cleanly to fusion** — masking
+the image leaves the patient's tabular vitals untouched, so a small drop
+could just as easily mean the model is genuinely drawing on both modalities
+for this prediction, which is exactly what a fusion model is supposed to
+do. Counterfactual masking is a noisier signal for a multimodal model than
+for a vision-only one, and this project isn't going to claim otherwise.
+
 ## Limitations & Ethics
 
 This is a research/portfolio prototype trained on a public dataset and is **not validated for clinical use**. See [`docs/ethics_statement.md`](docs/ethics_statement.md) for a full discussion of dataset limitations, explainability caveats, and intended use.
