@@ -165,9 +165,9 @@ python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_
 python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/localization_cbam.csv
 ```
 
-### Attention-consistency training (built, not yet run on real data)
+### Attention-consistency training
 
-Beyond just measuring CBAM's localization after training, `src/train_attention_consistency.py` trains *toward* it directly — see [`docs/architecture.md`](docs/architecture.md#attention-consistency-training-experimental) for the full design and the tradeoffs involved. Implemented and verified end-to-end with synthetic data (13 new tests), but not yet trained on the real dataset — that needs real GPU time. To actually run it:
+Beyond just measuring CBAM's localization after training, `src/train_attention_consistency.py` trains *toward* it directly — see [`docs/architecture.md`](docs/architecture.md#attention-consistency-training-experimental) for the full design and the tradeoffs involved, and the [Results](#results) section below for the real 3-seed comparison against CBAM-alone. To reproduce:
 
 ```bash
 # One-time: cache lung masks for train+val (skip test — these masks are
@@ -194,7 +194,7 @@ python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_
 - [x] Streamlit dashboard
 - [x] Deploy live demo (Streamlit Community Cloud)
 - [x] CBAM attention module (retrained + benchmarked — see [Results](#results))
-- [ ] Attention-consistency training (implemented, verified end-to-end on synthetic data, not yet run on the real dataset)
+- [x] Attention-consistency training (3-seed comparison — see [Results](#results); strongest, most consistent effect in the project, with a real accuracy cost)
 
 ## Results
 
@@ -383,6 +383,68 @@ could just as easily mean the model is genuinely drawing on both modalities
 for this prediction, which is exactly what a fusion model is supposed to
 do. Counterfactual masking is a noisier signal for a multimodal model than
 for a vision-only one, and this project isn't going to claim otherwise.
+
+### Attention-consistency training — a stronger effect, with a real cost
+
+`src/train_attention_consistency.py` goes a step further than CBAM: instead
+of just architecture that *might* help localization, it adds a loss term
+that directly penalizes CBAM's own attention map for falling outside the
+segmented lung field (`src/models/attention_consistency_loss.py` — defined
+as `1 - lung_energy_fraction`, literally training toward the exact metric
+this project already measures). Trained across the same 3 seeds, compared
+against CBAM-alone:
+
+**Grad-CAM lung-energy fraction (attention-consistency − CBAM-alone):**
+
+| Seed | CBAM-alone | Attention-consistency | Diff |
+|---|---|---|---|
+| 42 | 0.515 | 0.641 | +0.126 |
+| 123 | 0.424 | 0.616 | +0.192 |
+| 2024 | 0.473 | 0.557 | +0.084 |
+| **Mean ± std** | — | — | **+0.134 ± 0.055** |
+
+One-sample t-test (n=3 seeds): t=4.27, **p=0.051**
+
+**Test macro AUROC (attention-consistency − CBAM-alone):**
+
+| Seed | CBAM-alone | Attention-consistency | Diff |
+|---|---|---|---|
+| 42 | 0.9608 | 0.9167 | −0.0441 |
+| 123 | 0.9445 | 0.9414 | −0.0031 |
+| 2024 | 0.9604 | 0.9296 | −0.0308 |
+| **Mean ± std** | — | — | **−0.026 ± 0.021** |
+
+One-sample t-test (n=3 seeds): t=−2.15, **p=0.164**
+
+**This is the most consistent effect in this entire project.** Every other
+comparison here (CBAM on vision, CBAM on fusion) had at least one seed
+flip sign. This one didn't — all 3 seeds improved localization, and the
+effect (p=0.051) sits right at the conventional significance threshold
+despite only 3 replicates, which is a much stronger signal than a
+borderline p-value alone suggests. That makes sense: directly training
+toward the target metric should produce a more reliable effect than hoping
+an architectural change happens to help it.
+
+**The honest cost:** accuracy also declined in all 3 seeds, but the
+*size* of that decline varies enormously — from nearly nothing (−0.003) to
+substantial (−0.044) — so unlike the localization effect, it isn't
+statistically distinguishable from noise at n=3 (p=0.164). The fair
+reading isn't "no cost" (the direction is consistent) or "proven cost"
+(the size isn't reliable) — it's that a real accuracy tradeoff likely
+exists, its magnitude isn't pinned down yet, and `attention_consistency_weight: 0.1`
+was a first guess, not a tuned value (see
+[`configs/vision_attention_consistency.yaml`](configs/vision_attention_consistency.yaml)).
+A single run at weight=0.03 showed a bigger accuracy drop and a suspicious
+val/test gap (val AUROC hit a perfect 1.0000, test fell to 0.8933) —
+consistent with overfitting on that particular run rather than evidence
+that a lower weight is worse; that single data point wasn't replicated
+and isn't reported as a result here, only as a reason a proper
+weight-sensitivity sweep (multiple seeds per weight, not one) is the
+obvious next step this project ran out of GPU time for.
+
+Per-seed data: [`docs/localization_attention_consistency_seed42.csv`](docs/localization_attention_consistency_seed42.csv),
+[`docs/localization_attention_consistency_seed123.csv`](docs/localization_attention_consistency_seed123.csv),
+[`docs/localization_attention_consistency_seed2024.csv`](docs/localization_attention_consistency_seed2024.csv).
 
 ## Limitations & Ethics
 
