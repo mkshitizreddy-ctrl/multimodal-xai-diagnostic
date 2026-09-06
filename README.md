@@ -425,26 +425,50 @@ borderline p-value alone suggests. That makes sense: directly training
 toward the target metric should produce a more reliable effect than hoping
 an architectural change happens to help it.
 
-**The honest cost:** accuracy also declined in all 3 seeds, but the
-*size* of that decline varies enormously — from nearly nothing (−0.003) to
-substantial (−0.044) — so unlike the localization effect, it isn't
-statistically distinguishable from noise at n=3 (p=0.164). The fair
-reading isn't "no cost" (the direction is consistent) or "proven cost"
-(the size isn't reliable) — it's that a real accuracy tradeoff likely
-exists, its magnitude isn't pinned down yet, and `attention_consistency_weight: 0.1`
-was a first guess, not a tuned value (see
-[`configs/vision_attention_consistency.yaml`](configs/vision_attention_consistency.yaml)).
-A single run at weight=0.03 showed a bigger accuracy drop and a suspicious
-val/test gap (val AUROC hit a perfect 1.0000, test fell to 0.8933) —
-consistent with overfitting on that particular run rather than evidence
-that a lower weight is worse; that single data point wasn't replicated
-and isn't reported as a result here, only as a reason a proper
-weight-sensitivity sweep (multiple seeds per weight, not one) is the
-obvious next step this project ran out of GPU time for.
+**The honest cost:** accuracy also declined in all 3 seeds at weight=0.1,
+but the *size* of that decline varied enough (−0.003 to −0.044) that a
+single weight alone couldn't say whether this was a real, sized tradeoff
+or noise. So the natural next step — a proper weight-sensitivity sweep,
+3 seeds per weight instead of one — was run:
+
+**Weight-sensitivity sweep (3 seeds per weight):**
+
+| Weight | Test AUROC | Localization |
+|---|---|---|
+| 0.0 (CBAM alone) | 0.9552 ± 0.0093 | 0.462 ± 0.062 |
+| 0.05 | 0.9356 ± 0.0119 | 0.550 ± 0.022 |
+| 0.1 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
+| 0.2 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
+
+This is a genuine, monotonic dose-response relationship — both directions
+move smoothly and predictably as the weight increases, no sign flips, no
+surprises. Two things stand out beyond the basic tradeoff:
+
+- **Diminishing returns on localization:** +0.088 going from 0→0.05, then
+  +0.043 (0.05→0.1), then only +0.018 (0.1→0.2) — each doubling of the
+  weight buys progressively less localization improvement.
+- **Growing instability at the high end:** weight=0.2's AUROC std (0.038)
+  is 3-4x larger than the other settings, driven by one seed (123)
+  dropping to 0.867 — a higher weight isn't just costlier on average,
+  it's *less predictable* run to run.
+
+An earlier single run at weight=0.03 (0.8933 AUROC, a suspicious perfect
+1.0000 validation score) doesn't fit this clean curve at all — with the
+full sweep in hand, that's confirmed to have been an unreplicated outlier,
+not a real data point, exactly why it was flagged rather than reported as
+a result at the time.
+
+**Bottom line:** there is a real, clean, well-behaved tradeoff between
+localization quality and accuracy in this training scheme, and it can be
+tuned — weight=0.05 gets roughly 60% of the full localization gain at
+under half the accuracy cost of weight=0.2, making it arguably the more
+practical choice depending on what a deployment actually needs to
+prioritize.
 
 Per-seed data: [`docs/localization_attention_consistency_seed42.csv`](docs/localization_attention_consistency_seed42.csv),
 [`docs/localization_attention_consistency_seed123.csv`](docs/localization_attention_consistency_seed123.csv),
-[`docs/localization_attention_consistency_seed2024.csv`](docs/localization_attention_consistency_seed2024.csv).
+[`docs/localization_attention_consistency_seed2024.csv`](docs/localization_attention_consistency_seed2024.csv),
+plus per-seed data for weights 0.05 and 0.2 in `docs/localization_ac_weight*.csv`.
 
 ## Limitations & Ethics
 
