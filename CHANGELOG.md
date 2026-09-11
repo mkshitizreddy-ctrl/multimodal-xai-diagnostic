@@ -6,6 +6,40 @@ build phase they correspond to.
 ## [Unreleased]
 - Deploy live demo to Hugging Face Spaces
 
+## v0.10 — Fusion explainability, attention-consistency training, weight sweep
+- `src/explain/fusion_wrapper.py`: `FusionModelImageWrapper` adapts the
+  dual-input fusion model to the single-input interface Grad-CAM and the
+  counterfactual explainer expect, so both work on the fusion model
+  completely unmodified — closes the gap `docs/architecture.md` had
+  flagged since v0.6. `src/explain/generate_fusion_examples.py` and an
+  extended `measure_lung_localization.py` (auto-detects checkpoint type)
+  followed the same pattern.
+- Fusion CBAM result (3 seeds): a genuinely different outcome from vision
+  — localization effect vanishes (mean diff ≈ 0.0003, p=0.995) while
+  accuracy trends mildly *positive* (opposite direction from vision).
+  CBAM's effect is architecture-dependent, not a property of the module
+  alone — see [Results](README.md#results).
+- `src/models/attention_consistency_loss.py` + `src/train_attention_consistency.py`:
+  goes beyond CBAM by training the model's own spatial attention toward
+  the segmented lung field directly (loss = `1 - lung_energy_fraction`),
+  instead of only measuring localization after training. Required
+  precomputing lung masks (`data/scripts/precompute_lung_masks.py`) and a
+  dataset wrapper (`src/data/lung_mask_dataset.py`) kept fully separate
+  from `ChestXrayDataset` to avoid touching 50+ existing tests.
+- Attention-consistency result (3 seeds, weight=0.1): the most consistent
+  effect in the project — all 3 seeds improved localization (p=0.051),
+  with a real but seed-variable accuracy cost (p=0.164, not significant
+  at n=3 alone).
+- Weight-sensitivity sweep (3 seeds × 3 weights: 0.05/0.1/0.2): a clean,
+  monotonic dose-response curve between localization gain and accuracy
+  cost, with diminishing localization returns and growing instability at
+  higher weights. Confirmed an earlier single unreplicated run at
+  weight=0.03 was a genuine outlier, not a real data point.
+- 23 new tests total across `test_vision_model.py`,
+  `test_attention_consistency_loss.py`, `test_lung_mask_dataset.py`,
+  `test_fusion_wrapper.py`, and the extended
+  `test_measure_lung_localization.py`
+
 ## v0.9 — CBAM attention module
 - `src/models/attention.py`: CBAM (channel + spatial attention, Woo et al.
   ECCV 2018), gated behind `use_cbam` config flag on both the vision-only
