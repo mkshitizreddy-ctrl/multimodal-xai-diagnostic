@@ -1,0 +1,93 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+
+\title{Explainable Pneumonia Classification from Chest X-Rays Using DenseNet-121, CBAM, and Multimodal Fusion}
+\author{Kshitiz Reddy.M \\ M.Tech Artificial Intelligence \\ Bennett University}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This work evaluates DenseNet-121 for binary pneumonia classification from
+pediatric chest X-rays, with Convolutional Block Attention Module (CBAM)
+attention and post-hoc Grad-CAM explanations. On a 624-image held-out test
+split, the vision model achieved an AUROC of 0.9604 (95\% CI: 0.9412--0.9757)
+and an AUPR of 0.9628 (95\% CI: 0.9377--0.9825). We additionally evaluate a
+late-fusion configuration using synthetic tabular attributes. Its improved
+metrics demonstrate that the implementation can exploit correlated multimodal
+signal, not clinical validity with real patient records. We report all
+thresholded and ranking metrics with bootstrap confidence intervals and use
+lung segmentation masks to quantify the fraction of Grad-CAM activation inside
+the lung field.
+\end{abstract}
+
+\section{Introduction}
+Pneumonia remains an important use case for computer-aided interpretation of
+chest radiographs. Deep neural networks can achieve high classification
+performance, but visual explanations must be interpreted cautiously: a
+plausible heatmap does not establish clinically valid reasoning. This work
+therefore combines classification evaluation with Grad-CAM-based localization
+measurement.
+
+\section{Related Work}
+CBAM applies sequential channel and spatial attention with limited additional
+overhead~\cite{woo2018cbam}. Recent pneumonia studies have combined CBAM,
+DenseNet-121, and Grad-CAM, although their task definitions and data splits
+differ from this binary study~\cite{dey2026cbam,potharaju2025enhanced,
+rashid2025framework}. Grad-CAM is widely used for weakly supervised
+localization~\cite{selvaraju2017gradcam,shahi2025weakly}. DenseNet variants
+have also been evaluated directly on the Kermany chest X-ray data set
+\cite{bundea2024pneumonia,erukude2025explainable}.
+
+\section{Methods}
+\subsection{Architecture}
+An ImageNet-pretrained DenseNet-121 backbone produces a 1024-dimensional image
+representation. CBAM is inserted after feature extraction and before the
+classification head. For the fusion configuration, four tabular inputs are
+encoded into a 64-dimensional representation and concatenated with the image
+representation before classification.
+
+\subsection{Explainability}
+Grad-CAM~\cite{selvaraju2017gradcam} produces class-specific heatmaps from the
+final convolutional layer. A pretrained lung-segmentation model provides lung
+masks. The lung-energy fraction is the fraction of heatmap activation contained
+inside the segmented lung region. This is a quantitative proxy for anatomical
+localization, not a clinical validation of the explanation.
+
+\section{Dataset and Preprocessing}
+We use the pediatric Chest X-Ray Pneumonia data set~\cite{kermany2018identifying},
+containing 5,856 images (1,583 normal and 4,273 pneumonia). The original
+624-image test split is retained. The training and validation pools are
+re-split using the best available patient identifiers; this reduces leakage
+risk but cannot prove complete patient-level separation for normal images,
+which lack equivalent identifiers. Images are resized to $224\times224$,
+replicated from grayscale to RGB, and normalized. Training images receive
+horizontal-flip and small-rotation augmentation.
+
+\input{research_paper_revisions}
+
+\section{Limitations}
+The data set is pediatric and from a single public source; performance may not
+generalize across hospitals, imaging devices, age groups, or disease
+prevalences. The fusion metadata are synthetic and deliberately label-correlated,
+so they must not be interpreted as real clinical evidence. Grad-CAM and the
+lung-energy fraction are explanatory proxies rather than ground-truth lesion
+localization measures. Three-seed comparisons are exploratory because of their
+small sample size.
+
+\section{Conclusion}
+DenseNet-121 with CBAM provides strong held-out ranking performance for this
+research prototype. The fusion configuration improves the reported point
+estimates, but its synthetic metadata prevent clinical conclusions. Future work
+should validate on external, patient-linked data and compare explanations with
+expert annotations.
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}

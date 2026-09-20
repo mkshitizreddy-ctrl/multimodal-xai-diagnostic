@@ -1,0 +1,71 @@
+% Paste these revised sections into the main .tex file supplied by Claude.
+% Required preamble packages: \usepackage{booktabs,graphicx,amsmath}
+
+\section{Results}
+\label{sec:results}
+
+Table~\ref{tab:final-metrics} reports performance on the held-out test split
+($n=624$) at a pre-specified probability threshold of 0.5. Confidence intervals
+are percentile-bootstrap 95\% intervals from 2,000 resamples of the test set.
+The vision model uses DenseNet-121 with CBAM. The fusion model uses the same
+image branch and additionally receives synthetic tabular features; consequently,
+the fusion result demonstrates the implementation's ability to use correlated
+tabular signal and must not be interpreted as clinical validation.
+
+\begin{table}[htbp]
+\centering
+\caption{Held-out test performance. Values in brackets are bootstrap 95\%
+confidence intervals.}
+\label{tab:final-metrics}
+\small
+\begin{tabular}{lcc}
+\toprule
+Metric & Vision + CBAM & Fusion + CBAM \\
+\midrule
+Accuracy  & 0.8638 [0.8365, 0.8895] & 0.8702 [0.8429, 0.8959] \\
+Precision & 0.8224 [0.7876, 0.8566] & 0.8280 [0.7927, 0.8627] \\
+Recall    & 0.9974 [0.9920, 1.0000] & 1.0000 [1.0000, 1.0000] \\
+F1-score  & 0.9015 [0.8800, 0.9217] & 0.9059 [0.8843, 0.9263] \\
+AUROC     & 0.9604 [0.9412, 0.9757] & 0.9899 [0.9810, 0.9961] \\
+AUPR      & 0.9628 [0.9377, 0.9825] & 0.9921 [0.9839, 0.9978] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The fusion configuration has higher point estimates for every reported metric.
+Its AUROC increases by 0.0295 and its AUPR by 0.0293 relative to the vision
+configuration. The AUROC and AUPR intervals do not overlap; this descriptive
+observation is not a formal paired hypothesis test. Threshold-based intervals
+for accuracy and F1-score overlap, so the results do not support a strong claim
+of improvement for those metrics at the fixed threshold.
+
+\section{Corrections to Experimental Setup}
+
+\subsection{Evaluation Metrics and Uncertainty}
+Models are evaluated using accuracy, precision, recall, F1-score, AUROC, and
+AUPR. Accuracy, precision, recall, and F1-score are calculated at a fixed
+threshold of 0.5; this threshold is not tuned on the held-out test split. AUROC
+and AUPR summarize ranking performance across thresholds. For every metric, a
+percentile-bootstrap 95\% confidence interval is calculated using 2,000
+resamples of the held-out test set with replacement.
+
+\subsection{Data Splitting}
+The original 624-image test split is preserved. The original training and
+validation pools are merged and then split into training and validation sets
+using the best available patient identifiers. Pneumonia filenames encode a
+patient identifier; normal-class images do not provide an equivalent identifier
+and are therefore treated as unique patients. This reduces, but cannot prove
+the complete absence of, patient-level leakage. The resulting experimental
+splits contain 4,434 training, 798 validation, and 624 test images.
+
+\subsection{Statistical Replication}
+Selected architecture and attention-consistency comparisons are repeated over
+three random seeds (42, 123, and 2024) and summarized as mean $\pm$ standard
+deviation. Any associated $t$-tests are exploratory because $n=3$ offers low
+statistical power; their p-values should not be treated as definitive evidence.
+
+% Replace the existing Proposed row in Table 1 with this row. Do not use the
+% earlier 0.9608 value: the evaluated checkpoint has AUROC 0.9604.
+% \textbf{Proposed} & \textbf{DenseNet121 + CBAM} & \textbf{Binary CXR}
+% & \textbf{86.38\%} & \textbf{82.24\%} & \textbf{99.74\%}
+% & \textbf{90.15\%} & \textbf{0.9628} & \textbf{0.9604} \\

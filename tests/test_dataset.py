@@ -70,6 +70,22 @@ def test_labels_are_multi_hot(synthetic_dataset):
     assert set(labels.tolist()).issubset({0.0, 1.0})
 
 
+def test_training_augmentation_accepts_rotation_and_zoom(synthetic_dataset):
+    transform = ChestXrayDataset._build_transform(
+        image_size=64,
+        train=True,
+        augmentation={"rotation_degrees": 7, "zoom_scale": [1.0, 1.1]},
+    )
+    names = [type(step).__name__ for step in transform.transforms]
+    assert "RandomRotation" in names
+    assert "RandomAffine" in names
+
+
+def test_invalid_zoom_range_is_rejected():
+    with pytest.raises(ValueError, match="zoom_scale"):
+        ChestXrayDataset._build_transform(64, True, {"zoom_scale": [1.1, 1.0]})
+
+
 def test_categorical_tabular_encoding_is_stable(synthetic_dataset):
     _, tabular_a, _ = synthetic_dataset[0]
     _, tabular_b, _ = synthetic_dataset[0]

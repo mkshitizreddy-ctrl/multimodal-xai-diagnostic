@@ -1,0 +1,43 @@
+# Controlled augmentation ablation. The train/val/test CSVs and all model
+# hyperparameters match vision_baseline.yaml; only the training augmentation
+# policy and output folders differ. Do not augment validation or test images.
+
+data:
+  train_csv: "data/processed/train.csv"
+  val_csv: "data/processed/val.csv"
+  test_csv: "data/processed/test.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+  augmentation:
+    horizontal_flip_p: 0.5
+    rotation_degrees: 7
+    # Random magnification only (1.00--1.10x); avoids artificial black borders
+    # caused by zooming out of a chest radiograph.
+    zoom_scale: [1.00, 1.10]
+
+model:
+  name: "densenet121"
+  pretrained: true
+  dropout: 0.2
+  use_cbam: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+
+checkpoint:
+  dir: "checkpoints/vision_rotation_zoom"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/vision_rotation_zoom"
+  log_every_n_steps: 50

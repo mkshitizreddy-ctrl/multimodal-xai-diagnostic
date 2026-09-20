@@ -38,6 +38,7 @@ class ChestXrayDataset(Dataset):
         image_size: int = 224,
         train: bool = False,
         tabular_stats: dict | None = None,
+        augmentation: dict | None = None,
     ):
         """
         Args:
@@ -63,7 +64,7 @@ class ChestXrayDataset(Dataset):
         else:
             self._fit_tabular_normalizers()
 
-        self.transform = self._build_transform(image_size, train)
+        self.transform = self._build_transform(image_size, train, augmentation)
 
     def _fit_tabular_normalizers(self) -> None:
         self.tabular_means = {}
@@ -93,13 +94,29 @@ class ChestXrayDataset(Dataset):
         }
 
     @staticmethod
-    def _build_transform(image_size: int, train: bool) -> transforms.Compose:
+    def _build_transform(
+        image_size: int, train: bool, augmentation: dict | None = None
+    ) -> transforms.Compose:
+        """Build image transforms without applying augmentation to val/test.
+
+        ``augmentation`` is used only for training and makes experimental
+        policies reproducible from YAML. The defaults retain the original
+        horizontal-flip and five-degree rotation behavior.
+        """
         aug = []
         if train:
+            augmentation = augmentation or {}
+            flip_probability = augmentation.get("horizontal_flip_p", 0.5)
+            rotation_degrees = augmentation.get("rotation_degrees", 5)
+            zoom_scale = augmentation.get("zoom_scale")
             aug = [
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomRotation(degrees=5),
+                transforms.RandomHorizontalFlip(p=flip_probability),
+                transforms.RandomRotation(degrees=rotation_degrees),
             ]
+            if zoom_scale is not None:
+                if len(zoom_scale) != 2 or zoom_scale[0] <= 0 or zoom_scale[0] > zoom_scale[1]:
+                    raise ValueError("augmentation.zoom_scale must be a positive [min, max] pair")
+                aug.append(transforms.RandomAffine(degrees=0, scale=tuple(zoom_scale)))
         return transforms.Compose(
             [
                 transforms.Resize((image_size, image_size)),

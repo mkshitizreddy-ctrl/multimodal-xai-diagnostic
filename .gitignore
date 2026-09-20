@@ -35,3 +35,22 @@ logs/
 
 myenv/
 notebooks/.ipynb_checkpoints/
+
+# LaTeX temporary files
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.synctex.gz
+
+# Temporary encoded files
+*_b64.txt
+
+# Local experiment scripts
+fix_*.ps1
+multi_seed*.ps1
+weight_sweep.ps1
+
+# Generated research paper output
+docs/*.pdf

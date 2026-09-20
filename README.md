@@ -138,7 +138,13 @@ python src/train_fusion.py --data-config configs/data.yaml --train-config config
 # 5. Evaluate the fusion model and generate its results table
 python src/evaluate_fusion.py --checkpoint checkpoints/fusion/best_model.pth
 
-# 6. Launch the dashboard
+# 6. Optionally report Accuracy, Precision, Recall, F1, AUROC, and AUPR,
+#    each with a bootstrap 95% confidence interval. This leaves the cited
+#    AUROC-only result tables above unchanged.
+python src/evaluate_full_metrics.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/vision_full_metrics.csv
+python src/evaluate_full_metrics.py --checkpoint checkpoints/fusion/best_model.pth --train-config configs/fusion.yaml --output-csv docs/fusion_full_metrics.csv
+
+# 7. Launch the dashboard
 streamlit run dashboard/app.py
 ```
 

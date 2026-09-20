@@ -41,6 +41,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         tabular_features=tabular_features,
         image_size=image_size,
         train=True,
+        augmentation=train_cfg["data"].get("augmentation"),
     )
 
     # Fit normalization stats and the categorical vocab ONCE on train, and

@@ -1,0 +1,33 @@
+﻿# Core
+# NOTE: Streamlit Community Cloud runs Python 3.14 and is CPU-only. Plain
+# nvidia-nccl-cu12 (multi-GB download) and times out on Streamlit's build
+# infra. Pinning the +cpu build from PyTorch's own wheel index avoids that
+# entirely and is roughly 10x smaller. See https://pytorch.org/get-started/locally/
+PyYAML==6.0.3
+numpy==2.4.4
+pandas==3.0.5
+scikit-learn==1.9.0
+
+# Imaging / DICOM
+pydicom==3.0.2
+kagglehub==1.0.2
+huggingface_hub==1.26.1
+Pillow==12.2.0
+opencv-python-headless==5.0.0.93
+
+# Explainability
+grad-cam==1.5.5
+torchxrayvision==1.5.2
+
+# Dashboard
+streamlit==1.60.0
+plotly==6.9.0
+
+# Experiment tracking
+tqdm==4.70.0
+matplotlib==3.11.1
+jupyter==1.1.1
+
+# Testing / linting
+pytest==9.1.1
+ruff==0.16.2
