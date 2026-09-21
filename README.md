@@ -1,489 +1,245 @@
-# 🩺 Explainable Multimodal Diagnostic Support System
+# Explainable Multimodal Diagnostic Support System
 
-![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
+An explainable multimodal deep learning pipeline for pediatric pneumonia detection from chest X-rays and clinical metadata. Built as part of my M.Tech (AI) work at Bennett University.
 
-> Chest X-ray diagnosis with fused clinical metadata, and visual explanations (Grad-CAM + occlusion-based counterfactuals) so the model's reasoning is inspectable instead of a black box.
+The core idea: it's not enough for a model to say "pneumonia" — I wanted to know *where* it's looking and whether that changes depending on how the model is trained. So this project combines a DenseNet-121 classifier with Grad-CAM, CBAM attention, occlusion-based counterfactuals, lung-localization scoring, and an attention-consistency loss that explicitly nudges the model to look inside the lungs.
 
-🔗 **[Live Demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app)**
+[![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions)
+Python 3.11+ · MIT License
+
+[Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app)
 
 ![Dashboard demo](docs/screenshots/dashboard_demo.png)
-
 ---
 
 ## Why this project
 
-Clinical AI models are often accurate but opaque, which limits real-world trust. This project predicts pneumonia from pediatric chest X-rays **fused with patient vitals** (age, gender, temperature, SpO2 — see note below), and pairs every prediction with:
+Medical imaging models can hit strong accuracy numbers while giving almost no insight into *why* they made a call. That's a real problem in a clinical setting — a model that's right for the wrong reasons is still a liability. So alongside the classifier, I built out a set of explainability tools and used them to actually interrogate the model instead of just trusting the heatmaps at face value.
 
-- A **Grad-CAM heatmap** showing which image regions drove the prediction.
-- An **occlusion-based counterfactual view** showing how the model's confidence changes when the highlighted region is masked — an intuitive proxy for "what if this finding wasn't there?"
+**Note on the data:** the chest X-ray dataset doesn't come with real patient vitals, so the tabular features used for multimodal fusion (age, gender, temperature, SpO₂) are synthetically generated with clinically plausible correlations to the label. They're there to test the *architecture*, not to claim any real diagnostic benefit — see `docs/ethics_statement.md`.
 
-⚠️ **The tabular vitals (temperature, SpO2, age) are synthetically generated** — the source dataset ships images only, no real EHR data. They're simulated with clinically plausible correlations (fever/lower oxygen for pneumonia-positive cases) specifically to keep the fusion architecture genuinely meaningful to demonstrate. **See [`docs/ethics_statement.md`](docs/ethics_statement.md) before citing any results from this project** — this is disclosed prominently there and must be mentioned in any presentation of this work.
+## Research questions
 
-An ablation study (`notebooks/02_fusion_ablation_results.ipynb`) directly measures what the tabular metadata adds over the image alone. See [`docs/architecture.md`](docs/architecture.md) for full technical detail.
+- Can DenseNet-121 classify pneumonia from chest X-rays accurately?
+- Does adding tabular data help over image-only?
+- Does Grad-CAM actually land on clinically relevant regions, or is the model cheating?
+- Does CBAM improve localization — and does that hold up across seeds?
+- Can I explicitly train attention to stay inside the lungs, and what does that cost in accuracy?
+
+## What's in here
+
+**Vision model** — DenseNet-121, patient-level train/val splitting, binary classification, evaluated on accuracy/precision/recall/F1/AUROC/AUPR.
+
+**Multimodal fusion** — image representation + tabular encoder + fusion head, so I could compare image-only vs. fused.
+
+**Explainability** — Grad-CAM, occlusion-based counterfactuals, lung-field localization scoring, attention-map analysis.
+
+**Attention modelling** — CBAM (channel + spatial), evaluated across multiple seeds, on both vision-only and fusion models, plus an attention-consistency loss trained against precomputed lung masks.
+
+**Engineering** — configurable training pipeline, automated eval scripts, GitHub Actions CI, 84 passing tests.
 
 ## Architecture
 
-![Multimodal fusion architecture](docs/assets/architecture_diagram.svg)
+```text
+                    Chest X-ray Image
+                            │
+                            ▼
+                     DenseNet-121
+                    (CBAM attention)
+                            │
+                            ▼
+                  Image Representation ──────┐
+                                              │
+              Synthetic Clinical Features     │
+                            │                 │
+                            ▼                 │
+                    Tabular Encoder           │
+                            │                 │
+                            └────► Fusion Network
+                                              │
+                                              ▼
+                                  Pneumonia Prediction
 
-*synthetic — see [`docs/ethics_statement.md`](docs/ethics_statement.md)
+              Explainability layer:
+              Grad-CAM · CBAM spatial attention ·
+              Lung localization · Counterfactuals ·
+              Attention-consistency analysis
+```
 
-## Tech stack
-
-`PyTorch` · `torchvision` · `pydicom` · `grad-cam` · `Streamlit` · `pandas` / `scikit-learn`
+Full diagram/writeup: `docs/architecture.md`
 
 ## Dataset
 
-[Chest X-ray Pneumonia (Kaggle)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) — 5,856 pediatric chest X-ray images (ages 1–5) from Guangzhou Women and Children's Medical Center, labeled Normal/Pneumonia. Tabular fusion inputs (age, gender, temperature, SpO2) are synthetically generated — see [`docs/ethics_statement.md`](docs/ethics_statement.md).
+Chest X-ray Pneumonia dataset (pediatric, ~1–5 years, Guangzhou Women and Children's Medical Center) — 5,856 images, Normal vs. Pneumonia. I originally planned to use NIH ChestX-ray14 but switched given local compute/storage limits.
 
-*(This project originally targeted the full [NIH Chest X-ray14](https://www.kaggle.com/datasets/nih-chest-xrays/data) dataset — 112k images, 14 classes, real patient metadata — switched to the above for local disk/compute constraints. See `configs/data_nih_legacy.yaml` and `docs/architecture.md#dataset-history`.)*
+Patient-level splitting where possible (pneumonia filenames carry patient IDs; normal-class images don't, so I conservatively treated each as a unique patient):
 
-## Repository structure
+- Train: ~4,434
+- Val: ~798
+- Test: ~624 (original dataset test split, preserved as-is)
 
-```
+## Stack
+
+Python 3.11+, PyTorch, Torchvision, DenseNet-121, CBAM, scikit-learn, Pandas, NumPy, Grad-CAM, Streamlit, OpenCV/PIL, pytest
+
+## Repo layout
+
+```text
 multimodal-xai-diagnostic/
-├── data/scripts/       # download & preprocessing scripts
+├── data/scripts/            # dataset prep, lung-mask precomputation
 ├── src/
-│   ├── data/            # Dataset / DataLoader classes
-│   ├── models/           # vision encoder, tabular encoder, fusion model
-│   └── explain/           # Grad-CAM + occlusion explainer
-├── dashboard/            # Streamlit app
-├── notebooks/            # EDA and results notebooks
+│   ├── data/                 # dataset classes
+│   ├── models/                # vision encoder, fusion, CBAM, attention-consistency loss
+│   ├── explain/                # Grad-CAM, counterfactuals, lung segmentation/localization
+│   ├── train*.py, evaluate*.py
+├── dashboard/app.py          # Streamlit demo
+├── notebooks/                # baseline + fusion ablation results
+├── configs/
 ├── tests/
-└── docs/
+├── docs/                       # architecture, ethics, ablations, paper drafts
+└── CHANGELOG.md
 ```
-
-## Setup
-
-```bash
-git clone https://github.com/<your-username>/multimodal-xai-diagnostic.git
-cd multimodal-xai-diagnostic
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Explainability
-
-Every prediction is paired with a **Grad-CAM heatmap** (`src/explain/gradcam.py`) showing which image regions drove the model's decision — built with [`pytorch-grad-cam`](https://github.com/jacobgil/pytorch-grad-cam), hooked into DenseNet-121's final dense block.
-
-```bash
-# Generate example Grad-CAM overlays from the test set
-python src/explain/generate_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth
-```
-
-| High-confidence Pneumonia (0.99) | Low-confidence / Normal (0.06) |
-|---|---|
-| ![Grad-CAM Pneumonia example](docs/gradcam_examples/example_535_Pneumonia_0.99.png) | ![Grad-CAM Normal example](docs/gradcam_examples/example_479_Pneumonia_0.01.png) |
-
-### A real finding: manual audit caught shortcut learning
-
-Manually inspecting Grad-CAM outputs across several confident predictions found inconsistent localization — some examples showed a well-concentrated heatmap over lung tissue, but others showed activation spread outside the lung fields entirely, including one case with warm activation sitting directly on a burned-in laterality marker and timestamp. Full writeup with all examples in [`docs/ethics_statement.md`](docs/ethics_statement.md#observed-evidence-of-possible-shortcut-learning).
-
-**Mitigation, verified working:** `src/explain/lung_segmentation.py` uses a pretrained chest X-ray segmentation model to constrain activation to the lung fields (`--restrict-to-lungs` flag). Compared below on the two worst offenders — same model, same image, before and after:
-
-```bash
-python src/explain/generate_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth --restrict-to-lungs --output-dir docs/gradcam_examples_lung_restricted
-```
-
-| | Before (unrestricted) | After (lung-restricted) |
-|---|---|---|
-| **Diffuse, near-total saturation** | ![before](docs/gradcam_examples/example_406_Pneumonia_1.00.png) | ![after](docs/gradcam_examples_lung_restricted/example_406_Pneumonia_1.00.png) |
-| **Activation on burned-in "R" marker/timestamp** | ![before](docs/gradcam_examples/example_269_Pneumonia_1.00.png) | ![after](docs/gradcam_examples_lung_restricted/example_269_Pneumonia_1.00.png) |
-
-The lung boundary is now visibly carved into the mask in both cases, and the marker/timestamp in the second example no longer has any heat sitting on top of it. This constrains the *explanation* to anatomically valid regions — it doesn't necessarily fix whatever the model is doing internally, which is why the finding above stays documented rather than being quietly removed once "fixed."
-
-**Counterfactual explanations** (`src/explain/counterfactual.py`) go a step further: the highest-activation region from Grad-CAM is inpainted out of the image, and the model is re-run on the result. A large confidence drop after removing that region is evidence the model's stated reasoning actually matches what's driving its prediction.
-
-```bash
-python src/explain/generate_counterfactual_examples.py --checkpoint checkpoints/vision_baseline/best_model.pth --strategy borderline
-```
-
-![Counterfactual flip example](docs/counterfactual_examples/example_471_Pneumonia.png)
-*Borderline-confidence prediction (0.510) flips to Normal (0.062) after masking the Grad-CAM region.*
-
-Testing on the 6 most borderline (closest to the 0.5 decision boundary) test predictions — the hardest possible case for this method, since confident predictions rarely flip regardless of explanation quality — **1/6 flipped outright, and 4 of the remaining 5 still showed a substantial confidence drop** toward Normal after occlusion. This is consistent evidence that the highlighted region is doing real work in the model's decision, not just noise.
-
-## Dashboard
-
-The Streamlit dashboard (`dashboard/app.py`) ties everything together: upload an X-ray, see per-class probabilities, a Grad-CAM heatmap for the top prediction, and the occlusion-based counterfactual comparison, all in one view.
-
-```bash
-streamlit run dashboard/app.py
-```
-
-It runs out of the box even before training — if no checkpoint is found at `checkpoints/vision_baseline/best_model.pth`, it falls back to a randomly-initialized model with a clearly visible warning banner, so the UI is explorable immediately. Once you've trained the vision baseline, predictions become meaningful automatically — no code changes needed.
-
-**Deploying a live demo:** free via [Streamlit Community Cloud](https://streamlit.io/cloud), with the trained checkpoint hosted on a free Hugging Face Hub model repo — see [`docs/deployment.md`](docs/deployment.md) for the full walkthrough (Hugging Face Spaces now requires a paid plan for Streamlit apps, so this repo doesn't use that path).
-
-## Usage
-
-```bash
-# 1. Download and prepare the Chest X-ray Pneumonia dataset (requires a Kaggle
-#    API token — see data/scripts/prepare_pneumonia_dataset.py for setup).
-#    This single script downloads images, builds patient-level train/val/test
-#    splits, and generates the synthetic tabular features — no separate
-#    preprocessing step needed for this dataset.
-python data/scripts/prepare_pneumonia_dataset.py
-
-# 2. Train the vision baseline (DenseNet-121)
-python src/train.py --data-config configs/data.yaml --train-config configs/vision_baseline.yaml
-
-# 3. Evaluate on the test set and generate the results table
-python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model.pth
-
-# 4. Train the fusion model (vision + tabular metadata)
-python src/train_fusion.py --data-config configs/data.yaml --train-config configs/fusion.yaml
-
-# 5. Evaluate the fusion model and generate its results table
-python src/evaluate_fusion.py --checkpoint checkpoints/fusion/best_model.pth
-
-# 6. Optionally report Accuracy, Precision, Recall, F1, AUROC, and AUPR,
-#    each with a bootstrap 95% confidence interval. This leaves the cited
-#    AUROC-only result tables above unchanged.
-python src/evaluate_full_metrics.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/vision_full_metrics.csv
-python src/evaluate_full_metrics.py --checkpoint checkpoints/fusion/best_model.pth --train-config configs/fusion.yaml --output-csv docs/fusion_full_metrics.csv
-
-# 7. Launch the dashboard
-streamlit run dashboard/app.py
-```
-
-View training curves and per-class AUROC in `notebooks/01_vision_baseline_results.ipynb`, and the vision-only vs. fusion ablation comparison in `notebooks/02_fusion_ablation_results.ipynb`.
-
-Run the test suite with:
-```bash
-pytest tests/ -v
-```
-
-### Comparing with vs. without CBAM
-
-Once you've trained a baseline (`use_cbam: false` in `configs/vision_baseline.yaml`), train again with `use_cbam: true` (the current default) and compare both accuracy and Grad-CAM localization quality:
-
-```bash
-# Evaluate both checkpoints' test macro AUROC
-python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model_no_cbam.pth
-python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model.pth
-
-# Compare what fraction of each model's Grad-CAM heatmap energy falls inside
-# the segmented lung field — the localization claim from the papers in
-# docs/paper_notes.md, made measurable instead of eyeballed
-python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model_no_cbam.pth --output-csv docs/localization_no_cbam.csv
-python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/localization_cbam.csv
-```
-
-### Attention-consistency training
-
-Beyond just measuring CBAM's localization after training, `src/train_attention_consistency.py` trains *toward* it directly — see [`docs/architecture.md`](docs/architecture.md#attention-consistency-training-experimental) for the full design and the tradeoffs involved, and the [Results](#results) section below for the real 3-seed comparison against CBAM-alone. To reproduce:
-
-```bash
-# One-time: cache lung masks for train+val (skip test — these masks are
-# for a training loss, not evaluation)
-python data/scripts/precompute_lung_masks.py --train-config configs/vision_attention_consistency.yaml
-
-# Train
-python src/train_attention_consistency.py --train-config configs/vision_attention_consistency.yaml
-
-# The resulting checkpoint works with every existing script unmodified —
-# same evaluate.py and measure_lung_localization.py used above
-python src/evaluate.py --checkpoint checkpoints/vision_attention_consistency/best_model.pth
-python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_attention_consistency/best_model.pth --output-csv docs/localization_attention_consistency.csv
-```
-
-## Roadmap
-
-- [x] Repo scaffold, license, dependencies
-- [x] Data download + preprocessing pipeline
-- [x] Vision baseline (DenseNet-121)
-- [x] Tabular fusion model
-- [x] Grad-CAM explainability module
-- [x] Occlusion-based counterfactual explainer
-- [x] Streamlit dashboard
-- [x] Deploy live demo (Streamlit Community Cloud)
-- [x] CBAM attention module (retrained + benchmarked — see [Results](#results))
-- [x] Attention-consistency training (3-seed comparison — see [Results](#results); strongest, most consistent effect in the project, with a real accuracy cost)
 
 ## Results
 
-Vision baseline (DenseNet-121) and fusion model (vision + tabular metadata) per-class and macro AUROC on the held-out test set are generated by `src/evaluate.py` / `src/evaluate_fusion.py` and compared in:
+| Model / Experiment     | Accuracy | Precision | Recall |   F1   | AUROC  |  AUPR  |
+| ----------------------- | -------: | --------: | -----: | -----: | -----: | -----: |
+| Vision baseline         |  86.38%  |   0.8224  | 0.9974 | 0.9015 | 0.9604 | 0.9628 |
+| Vision + rotation/zoom  |  73.88%  |   0.7052  | 1.0000 | 0.8271 | 0.9651 | 0.9730 |
+| Multimodal fusion       |  87.02%  |   0.8280  | 1.0000 | 0.9059 | 0.9899 | 0.9921 |
 
-- `notebooks/01_vision_baseline_results.ipynb` — vision-only training curves and per-class AUROC
-- `notebooks/02_fusion_ablation_results.ipynb` — vision-only vs. fusion comparison (the core ablation result)
+(Full CSVs with bootstrap CIs in `docs/vision_full_metrics.csv`, `docs/vision_rotation_zoom_metrics.csv`, `docs/fusion_full_metrics.csv`.)
+
+The rotation/zoom augmentation is a good example of why I look at more than one metric — it *improves* AUROC/AUPR but tanks accuracy and F1. Doesn't get called an improvement just because one number went up.
+
+## Explainability findings
+
+**Grad-CAM** sometimes landed on the lungs and sometimes didn't — a few cases lit up shoulders, image borders, burned-in annotations/timestamps instead. That's what motivated the localization work; a good accuracy number doesn't mean the model is looking at the right thing.
+
+**Lung-restricted explanations** — using a pretrained segmentation model, Grad-CAM can be constrained to the lung field for visualization (`--restrict-to-lungs`). That constrains what you *see*, not necessarily what the classifier actually learned from — I keep that distinction deliberate throughout.
+
+**Counterfactuals** — occlude the highest-activation region and re-run the model. Across 6 borderline predictions: 1 flipped outright, 4 of the remaining 5 showed a real confidence drop. Not causal proof, but decent supporting evidence that the highlighted regions matter.
+
+## CBAM — and why the story isn't simple
+
+CBAM (channel + spatial attention) was evaluated across 3 seeds (42, 123, 2024), on both the vision-only and fusion models.
+
+Vision-only, test AUROC:
+
+| Seed | No CBAM | CBAM | Diff |
+|---|---:|---:|---:|
+| 42 | 0.9592 | 0.9608 | +0.0016 |
+| 123 | 0.9695 | 0.9445 | −0.0250 |
+| 2024 | 0.9736 | 0.9604 | −0.0132 |
+| Mean ± SD | 0.9674 ± 0.0074 | 0.9552 ± 0.0093 | −0.0122 ± 0.0139 |
+
+Localization diff: +0.060 ± 0.076, p = 0.31 (exploratory, not significant).
+
+An earlier single-seed run had suggested a much stronger effect — that turned out to be **pseudo-replication** (treating individual images as independent replicates when the actual unit of replication is the training run/seed). I reran it properly across 3 seeds rather than quietly keeping the flattering number. Full details in the results section of the repo history / `CHANGELOG.md`.
+
+On the fusion model, CBAM's localization effect basically vanished (mean diff +0.0003 ± 0.085, p = 0.995) — so whatever CBAM is doing, it's architecture-dependent and doesn't transfer cleanly from vision-only to fusion.
+
+## Attention-consistency training
+
+Instead of just hoping CBAM attention lands on the lungs, I added a loss term (`1 − lung_energy_fraction`) that explicitly pushes attention toward precomputed lung masks.
+
+Across 3 seeds, localization improved consistently (+0.134 ± 0.055, p = 0.051 — borderline but consistent direction across all three seeds), at a cost to AUROC (−0.026 ± 0.021, p = 0.164).
+
+A weight sweep makes the trade-off explicit:
+
+| Weight | Test AUROC | Localization |
+|---:|---:|---:|
+| 0.0 (CBAM only) | 0.9552 ± 0.0093 | 0.462 ± 0.062 |
+| 0.05 | 0.9356 ± 0.0119 | 0.550 ± 0.022 |
+| 0.10 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
+| 0.20 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
+
+Better localization, worse AUROC, diminishing returns on localization as the weight climbs. I treat this as a tunable design decision, not a free win — and it's the honest way to present it.
+
+One earlier run at weight 0.03 gave AUROC 0.8933 with a suspicious 1.0000 validation score — didn't fit the sweep trend, so I flagged it as an unreplicated outlier rather than cherry-picking it into the results.
+
+## Reproducing this
+
+```bash
+git clone https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic.git
+cd multimodal-xai-diagnostic
+
+conda create -n ai_env python=3.11
+conda activate ai_env
+pip install -r requirements.txt
+```
+
+Dataset prep:
+
+```bash
+python data/scripts/prepare_pneumonia_dataset.py
+```
+
+Training:
+
+```bash
+# vision baseline
+python src/train.py --data-config configs/data.yaml --train-config configs/vision_baseline.yaml
+
+# fusion model
+python src/train_fusion.py --data-config configs/data.yaml --train-config configs/fusion.yaml
+
+# attention-consistency (precompute lung masks first)
+python data/scripts/precompute_lung_masks.py --train-config configs/vision_attention_consistency.yaml
+python src/train_attention_consistency.py --train-config configs/vision_attention_consistency.yaml
+```
+
+Evaluation:
 
 ```bash
 python src/evaluate.py --checkpoint checkpoints/vision_baseline/best_model.pth
 python src/evaluate_fusion.py --checkpoint checkpoints/fusion/best_model.pth
-jupyter notebook notebooks/02_fusion_ablation_results.ipynb
+python src/evaluate_full_metrics.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/vision_full_metrics.csv
 ```
 
-| Model | Test Macro AUROC |
-|---|---|
-| Vision-only baseline (DenseNet-121) | 0.9708 |
-| Vision + Tabular fusion | **0.9860** |
+Lung localization:
 
-![Training curves](docs/training_curves.png)
+```bash
+python src/explain/measure_lung_localization.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/localization_cbam.csv
+```
 
-Fusion improves test AUROC by **+1.5 points** over vision-only. Since the tabular vitals (temperature, SpO2) are synthetically generated with a deliberate correlation to the label (see [`docs/ethics_statement.md`](docs/ethics_statement.md)), this result demonstrates that **the fusion architecture correctly learns to exploit correlated tabular signal when present** — a valid architecture-level finding, not a real clinical discovery. Both models substantially exceed random chance (0.5) and validation AUROC (~0.999), with the gap between val and test AUROC (~0.03) reflecting normal generalization variance on a modestly-sized (~5,800 image) test set.
+Dashboard (Streamlit demo with X-ray upload, prediction, Grad-CAM and counterfactual visualization):
 
-### CBAM attention — what it adds, and why
+```bash
+streamlit run dashboard/app.py
+```
 
-**What it is:** `src/models/attention.py` implements CBAM (Convolutional Block
-Attention Module, Woo et al., ECCV 2018) — a small, cheap module inserted
-between the DenseNet-121 backbone and the classifier head. It does two things
-to the feature map before classification:
-1. **Channel attention** — decides which of the 1024 feature channels matter more for this input, and rescales them.
-2. **Spatial attention** — decides which *pixels* matter more, and rescales those.
+Tests:
 
-Total cost: ~2.1M extra parameters on a ~7M-parameter backbone. No change to
-input/output shapes, so it's a drop-in addition — enabled or disabled purely
-via the `use_cbam` config flag, with no other code changes needed.
+```bash
+pytest
+```
 
-**Why it was added:** this wasn't a generic "add an attention mechanism"
-upgrade. Reading the pneumonia chest X-ray literature (6 papers, 2024–2026,
-full notes in [`docs/paper_notes.md`](docs/paper_notes.md)) turned up a
-specific, repeated finding on this exact backbone + dataset combination:
-CBAM doesn't just improve classification accuracy, it also makes Grad-CAM
-heatmaps concentrate more tightly on actual pathological lung regions
-instead of drifting to shoulders, image borders, or annotations. That second
-part is what made it worth adding *here specifically* — it's a direct,
-literature-backed extension of the shortcut-learning problem already
-documented in [`docs/ethics_statement.md`](docs/ethics_statement.md), not
-just a routine accuracy play. CBAM was picked over the lighter SE-Net
-alternative (which some of the same papers also use) precisely because
-SE only does channel attention — the spatial term is what actually
-targets *where* the model looks, which is the whole point here.
+Currently: 84 passed, 6 warnings (warnings are from dependency code, not test failures). Also runs automatically via GitHub Actions on push.
 
-**Current status:** implemented, tested (10 tests across `test_attention.py`
-and the CBAM cases in `test_vision_model.py`), `use_cbam: true` is the
-default in both configs, and **retrained across 3 random seeds** per
-condition (42, 123, 2024 — same data splits, same 15-epoch config, only
-`use_cbam` and the seed different) to get a properly replicated comparison
-instead of a single lucky (or unlucky) run.
+## Limitations
 
-**Test macro AUROC:**
+Worth being upfront about, since I'd rather someone find these in the README than in the viva:
 
-| Seed | No CBAM | CBAM | Diff (CBAM − No CBAM) |
-|---|---|---|---|
-| 42 | 0.9592 | 0.9608 | +0.0016 |
-| 123 | 0.9695 | 0.9445 | −0.0250 |
-| 2024 | 0.9736 | 0.9604 | −0.0132 |
-| **Mean ± std** | 0.9674 ± 0.0074 | 0.9552 ± 0.0093 | **−0.0122 ± 0.0139** |
+- Tabular fusion features are synthetic — this shows the architecture can exploit a signal, not that real clinical vitals would help.
+- Dataset is modest compared to large-scale medical imaging benchmarks.
+- Several comparisons use only 3 seeds — reported p-values are exploratory, not confirmatory.
+- Lung-energy fraction tells you attention is inside the lung, not that it's on the actual pathological region.
+- Grad-CAM is an interpretation method, not a causal explanation. Same caveat for the occlusion counterfactuals — sensitivity isn't causality.
+- This is a research/portfolio prototype. It has not been clinically validated and isn't a diagnostic device.
 
-One-sample t-test on the 3 seed-level differences vs. 0: t=−1.59, **p=0.25 (not significant, n=3)**
+## What I'd do differently / next
 
-**Mean Grad-CAM lung-energy fraction** (fraction of heatmap energy inside the segmented lung field; paired within each seed, NaN images dropped):
+- More seeds where compute allows — 3 is thin for the statistical claims I'd ideally want to make.
+- Calibration analysis (reliability diagrams, ECE) — currently missing, and probably the single highest-value addition left.
+- Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
+- External validation on a different hospital/dataset.
+- Pathology-level localization annotations instead of just "inside the lung."
 
-| Seed | No CBAM | CBAM | Diff (CBAM − No CBAM) |
-|---|---|---|---|
-| 42 | 0.415 | 0.511 | +0.098 |
-| 123 | 0.463 | 0.572 | +0.109 |
-| 2024 | 0.498 | 0.470 | −0.028 |
-| **Mean ± std** | — | — | **+0.060 ± 0.076** |
+## Citation
 
-One-sample t-test on the 3 seed-level differences vs. 0: t=1.36, **p=0.31 (not significant, n=3)**
+If you use this repo, please cite it and the associated writeup in `docs/references.bib`.
 
-**The honest reading — including a correction to our own earlier analysis:**
-An initial single-seed comparison (seed 42 only) reported the localization
-improvement as highly significant (p=0.0013). That number was
-**pseudo-replicated** — it treated 26 images from *one* trained model as 26
-independent experiments, when they all share the same weights and are
-correlated with each other. The statistically correct unit of replication
-here is the *training run* (seed), not the image. Redone properly across 3
-seeds: **2 of 3 seeds show a real localization improvement (seeds 42 and
-123, both ~+0.10), but one shows a decline (seed 2024, −0.03)**, and with
-only 3 replicates the mean effect (+0.060 ± 0.076) isn't statistically
-distinguishable from noise (p=0.31). Accuracy tells a similar story in the
-other direction — a small, non-significant *decrease* on average
-(−0.012 ± 0.014, p=0.25), driven mostly by one seed (123) where CBAM
-underperformed by 2.5 points.
+---
 
-**The fair summary:** there's a real trend toward better Grad-CAM
-localization with CBAM, consistent with the literature review
-([`docs/paper_notes.md`](docs/paper_notes.md)), but n=3 seeds isn't enough
-to call it proven, and it does not come for free — accuracy doesn't
-reliably improve and may trend slightly worse. This is a more honest
-(and more useful) finding than a suspiciously clean single-run result would
-have been: it shows the effect is real-ish but not dramatic, and that
-claiming statistical significance from within-model image variance is a
-mistake worth catching rather than repeating.
-
-Visual example — index 272, seed 42, same test image, both checkpoints
-(illustrative of the seed-42 result specifically, not a population-level claim):
-
-| No CBAM | CBAM |
-|---|---|
-| ![No CBAM](docs/gradcam_examples_no_cbam/example_272_Pneumonia_0.99.png) | ![CBAM](docs/gradcam_examples/example_272_Pneumonia_1.00.png) |
-
-The no-CBAM heatmap extends up over the shoulder/clavicle, outside the
-actual lung field; the CBAM version sits more centrally over the upper
-chest. Not every image improved even within this one seed — index 479 (the
-low-confidence "normal" case) is a fair counterexample where CBAM's heatmap,
-while measurable, still lands mostly outside the ribcage. Full per-image
-numbers for all three seeds: [`docs/localization_no_cbam.csv`](docs/localization_no_cbam.csv) /
-[`docs/localization_cbam.csv`](docs/localization_cbam.csv) (seed 42),
-[`docs/localization_no_cbam_seed123.csv`](docs/localization_no_cbam_seed123.csv) /
-[`docs/localization_cbam_seed123.csv`](docs/localization_cbam_seed123.csv),
-[`docs/localization_no_cbam_seed2024.csv`](docs/localization_no_cbam_seed2024.csv) /
-[`docs/localization_cbam_seed2024.csv`](docs/localization_cbam_seed2024.csv).
-
-### CBAM on the fusion model — a genuinely different result
-
-Explainability was extended to the fusion model too
-(`src/explain/fusion_wrapper.py` — see
-[`docs/architecture.md`](docs/architecture.md) for how), so the same
-3-seed CBAM comparison was repeated on fusion instead of just vision. The
-result does **not** match the vision-only finding, and that mismatch is
-itself the interesting part.
-
-**Grad-CAM lung-energy fraction (CBAM − No CBAM):**
-
-| Seed | No CBAM | CBAM | Diff |
-|---|---|---|---|
-| 42 | 0.451 | 0.516 | +0.065 |
-| 123 | 0.489 | 0.393 | −0.096 |
-| 2024 | 0.444 | 0.476 | +0.032 |
-| **Mean ± std** | — | — | **+0.0003 ± 0.085** |
-
-One-sample t-test (n=3 seeds): t=0.007, **p=0.995**
-
-**Test macro AUROC (CBAM − No CBAM):**
-
-| Seed | No CBAM | CBAM | Diff |
-|---|---|---|---|
-| 42 | 0.9935 | 0.9921 | −0.0014 |
-| 123 | 0.9795 | 0.9915 | +0.0120 |
-| 2024 | 0.9816 | 0.9899 | +0.0083 |
-| **Mean ± std** | 0.9849 ± 0.0076 | 0.9912 ± 0.0011 | **+0.0063 ± 0.0071** |
-
-One-sample t-test (n=3 seeds): t=1.58, **p=0.26**
-
-**The honest read:** on fusion, CBAM's effect on localization is essentially
-a wash — the three seeds nearly perfectly cancel out (mean ≈ 0.0003),
-unlike vision where there was at least a noisy positive trend. Accuracy
-trends mildly *positive* here (opposite direction from vision's mild
-negative trend), though still not significant at n=3. Put plainly: **CBAM's
-effect appears to depend on which model it's attached to** — the vision-only
-finding does not generalize to the fusion model, and this project isn't
-going to pretend otherwise just because a consistent story would look
-cleaner. Full per-image numbers: [`docs/localization_fusion_no_cbam_seed42.csv`](docs/localization_fusion_no_cbam_seed42.csv) /
-[`docs/localization_fusion_cbam_seed42.csv`](docs/localization_fusion_cbam_seed42.csv),
-[`docs/localization_fusion_no_cbam_seed123.csv`](docs/localization_fusion_no_cbam_seed123.csv) /
-[`docs/localization_fusion_cbam_seed123.csv`](docs/localization_fusion_cbam_seed123.csv),
-[`docs/localization_fusion_no_cbam_seed2024.csv`](docs/localization_fusion_no_cbam_seed2024.csv) /
-[`docs/localization_fusion_cbam_seed2024.csv`](docs/localization_fusion_cbam_seed2024.csv).
-
-Visual example — index 272 (the same image used in the vision-side example
-above), fusion model with CBAM:
-
-| Grad-CAM | Counterfactual |
-|---|---|
-| ![Fusion Grad-CAM](docs/gradcam_examples_fusion/example_272_Pneumonia_0.98_gradcam.png) | ![Fusion counterfactual](docs/gradcam_examples_fusion/example_272_Pneumonia_0.98_counterfactual.png) |
-
-The heatmap sits in the lower-right chest with rib shadows visible through
-it — reasonably contained within lung tissue. The counterfactual is the
-more interesting part: masking the top-attended region only drops
-confidence from 0.98 to 0.95 (no flip). For the vision-only model, a small
-drop like that would usually suggest the model wasn't strongly relying on
-that region. But **that read doesn't transfer cleanly to fusion** — masking
-the image leaves the patient's tabular vitals untouched, so a small drop
-could just as easily mean the model is genuinely drawing on both modalities
-for this prediction, which is exactly what a fusion model is supposed to
-do. Counterfactual masking is a noisier signal for a multimodal model than
-for a vision-only one, and this project isn't going to claim otherwise.
-
-### Attention-consistency training — a stronger effect, with a real cost
-
-`src/train_attention_consistency.py` goes a step further than CBAM: instead
-of just architecture that *might* help localization, it adds a loss term
-that directly penalizes CBAM's own attention map for falling outside the
-segmented lung field (`src/models/attention_consistency_loss.py` — defined
-as `1 - lung_energy_fraction`, literally training toward the exact metric
-this project already measures). Trained across the same 3 seeds, compared
-against CBAM-alone:
-
-**Grad-CAM lung-energy fraction (attention-consistency − CBAM-alone):**
-
-| Seed | CBAM-alone | Attention-consistency | Diff |
-|---|---|---|---|
-| 42 | 0.515 | 0.641 | +0.126 |
-| 123 | 0.424 | 0.616 | +0.192 |
-| 2024 | 0.473 | 0.557 | +0.084 |
-| **Mean ± std** | — | — | **+0.134 ± 0.055** |
-
-One-sample t-test (n=3 seeds): t=4.27, **p=0.051**
-
-**Test macro AUROC (attention-consistency − CBAM-alone):**
-
-| Seed | CBAM-alone | Attention-consistency | Diff |
-|---|---|---|---|
-| 42 | 0.9608 | 0.9167 | −0.0441 |
-| 123 | 0.9445 | 0.9414 | −0.0031 |
-| 2024 | 0.9604 | 0.9296 | −0.0308 |
-| **Mean ± std** | — | — | **−0.026 ± 0.021** |
-
-One-sample t-test (n=3 seeds): t=−2.15, **p=0.164**
-
-**This is the most consistent effect in this entire project.** Every other
-comparison here (CBAM on vision, CBAM on fusion) had at least one seed
-flip sign. This one didn't — all 3 seeds improved localization, and the
-effect (p=0.051) sits right at the conventional significance threshold
-despite only 3 replicates, which is a much stronger signal than a
-borderline p-value alone suggests. That makes sense: directly training
-toward the target metric should produce a more reliable effect than hoping
-an architectural change happens to help it.
-
-**The honest cost:** accuracy also declined in all 3 seeds at weight=0.1,
-but the *size* of that decline varied enough (−0.003 to −0.044) that a
-single weight alone couldn't say whether this was a real, sized tradeoff
-or noise. So the natural next step — a proper weight-sensitivity sweep,
-3 seeds per weight instead of one — was run:
-
-**Weight-sensitivity sweep (3 seeds per weight):**
-
-| Weight | Test AUROC | Localization |
-|---|---|---|
-| 0.0 (CBAM alone) | 0.9552 ± 0.0093 | 0.462 ± 0.062 |
-| 0.05 | 0.9356 ± 0.0119 | 0.550 ± 0.022 |
-| 0.1 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
-| 0.2 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
-
-This is a genuine, monotonic dose-response relationship — both directions
-move smoothly and predictably as the weight increases, no sign flips, no
-surprises. Two things stand out beyond the basic tradeoff:
-
-- **Diminishing returns on localization:** +0.088 going from 0→0.05, then
-  +0.043 (0.05→0.1), then only +0.018 (0.1→0.2) — each doubling of the
-  weight buys progressively less localization improvement.
-- **Growing instability at the high end:** weight=0.2's AUROC std (0.038)
-  is 3-4x larger than the other settings, driven by one seed (123)
-  dropping to 0.867 — a higher weight isn't just costlier on average,
-  it's *less predictable* run to run.
-
-An earlier single run at weight=0.03 (0.8933 AUROC, a suspicious perfect
-1.0000 validation score) doesn't fit this clean curve at all — with the
-full sweep in hand, that's confirmed to have been an unreplicated outlier,
-not a real data point, exactly why it was flagged rather than reported as
-a result at the time.
-
-**Bottom line:** there is a real, clean, well-behaved tradeoff between
-localization quality and accuracy in this training scheme, and it can be
-tuned — weight=0.05 gets roughly 60% of the full localization gain at
-under half the accuracy cost of weight=0.2, making it arguably the more
-practical choice depending on what a deployment actually needs to
-prioritize.
-
-Per-seed data: [`docs/localization_attention_consistency_seed42.csv`](docs/localization_attention_consistency_seed42.csv),
-[`docs/localization_attention_consistency_seed123.csv`](docs/localization_attention_consistency_seed123.csv),
-[`docs/localization_attention_consistency_seed2024.csv`](docs/localization_attention_consistency_seed2024.csv),
-plus per-seed data for weights 0.05 and 0.2 in `docs/localization_ac_weight*.csv`.
-
-## Limitations & Ethics
-
-This is a research/portfolio prototype trained on a public dataset and is **not validated for clinical use**. See [`docs/ethics_statement.md`](docs/ethics_statement.md) for a full discussion of dataset limitations, explainability caveats, and intended use.
-
-## Deploying a live demo
-
-See [`docs/deployment.md`](docs/deployment.md) for step-by-step instructions to deploy the dashboard for free.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+**M. Kshitiz Reddy** — M.Tech (AI), Bennett University
