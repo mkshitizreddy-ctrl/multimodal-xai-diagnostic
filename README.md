@@ -2,7 +2,7 @@
 
 An explainable multimodal deep learning pipeline for pediatric pneumonia detection from chest X-rays and clinical metadata. Built as part of my M.Tech (AI) work at Bennett University.
 
-The core idea: it's not enough for a model to say "pneumonia" — I wanted to know *where* it's looking, whether that changes depending on how the model is trained, and whether its confidence scores can actually be trusted. So this project combines a DenseNet-121 classifier with Grad-CAM, CBAM attention, occlusion-based counterfactuals, lung-localization scoring, an attention-consistency loss that explicitly nudges the model to look inside the lungs, and a calibration analysis (with three attempted fixes, one of which actually worked) once I found the model's confidence wasn't trustworthy.
+The core idea: it's not enough for a model to say "pneumonia" — I wanted to know *where* it's looking, whether that changes depending on how the model is trained, and whether its confidence scores can actually be trusted. So this project combines a DenseNet-121 classifier with Grad-CAM, CBAM attention, occlusion-based counterfactuals, lung-localization scoring, an attention-consistency loss that explicitly nudges the model to look inside the lungs, and a calibration analysis (with three attempted fixes, one of which actually worked, and worked on both model variants) once I found the model's confidence wasn't trustworthy.
 
 [![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions)
 Python 3.11+ · MIT License
@@ -27,7 +27,7 @@ Medical imaging models can hit strong accuracy numbers while giving almost no in
 - Does CBAM improve localization — and does that hold up across seeds?
 - Can I explicitly train attention to stay inside the lungs, and what does that cost in accuracy?
 - Are the model's confidence scores trustworthy, and if not, can a standard post-hoc fix repair them?
-- Does label smoothing during training fix the overconfidence that post-hoc methods couldn't?
+- Does label smoothing during training fix the overconfidence that post-hoc methods couldn't, and does it generalize to the fusion model?
 
 ## What's in here
 
@@ -39,7 +39,7 @@ Medical imaging models can hit strong accuracy numbers while giving almost no in
 
 **Attention modelling** — CBAM (channel + spatial), evaluated across multiple seeds, on both vision-only and fusion models, plus an attention-consistency loss trained against precomputed lung masks.
 
-**Calibration** — Expected Calibration Error and reliability diagrams, plus three attempted fixes (temperature scaling, isotonic regression, label smoothing), with a paired-bootstrap significance check on the trade-off.
+**Calibration** — Expected Calibration Error and reliability diagrams, plus three attempted fixes (temperature scaling, isotonic regression, label smoothing), with a paired-bootstrap significance check on the trade-off, tested on both vision and fusion models.
 
 **Engineering** — configurable training pipeline, automated eval scripts, GitHub Actions CI, 84 passing tests.
 
@@ -109,16 +109,17 @@ multimodal-xai-diagnostic/
 
 ## Results
 
-| Model / Experiment     | Accuracy | Precision | Recall |   F1   | AUROC  |  AUPR  |
-| ----------------------- | -------: | --------: | -----: | -----: | -----: | -----: |
-| Vision baseline         |  86.38%  |   0.8224  | 0.9974 | 0.9015 | 0.9604 | 0.9628 |
-| Vision + rotation/zoom  |  73.88%  |   0.7052  | 1.0000 | 0.8271 | 0.9651 | 0.9730 |
-| Vision + label smoothing|  86.06%  |   0.8203  | 0.9949 | 0.8992 | 0.9459 | 0.9502 |
-| Multimodal fusion       |  87.02%  |   0.8280  | 1.0000 | 0.9059 | 0.9899 | 0.9921 |
+| Model / Experiment       | Accuracy | Precision | Recall |   F1   | AUROC  |  AUPR  |
+| -------------------------- | -------: | --------: | -----: | -----: | -----: | -----: |
+| Vision baseline           |  86.38%  |   0.8224  | 0.9974 | 0.9015 | 0.9604 | 0.9628 |
+| Vision + rotation/zoom    |  73.88%  |   0.7052  | 1.0000 | 0.8271 | 0.9651 | 0.9730 |
+| Vision + label smoothing  |  86.06%  |   0.8203  | 0.9949 | 0.8992 | 0.9459 | 0.9502 |
+| Multimodal fusion         |  87.02%  |   0.8280  | 1.0000 | 0.9059 | 0.9899 | 0.9921 |
+| Fusion + label smoothing  |  86.54%  |   0.8255  | 0.9949 | 0.9023 | 0.9927 | 0.9959 |
 
-(Full CSVs with bootstrap CIs in `docs/vision_full_metrics.csv`, `docs/vision_rotation_zoom_metrics.csv`, `docs/vision_label_smoothing_full_metrics.csv`, `docs/fusion_full_metrics.csv`.)
+(Full CSVs with bootstrap CIs in `docs/vision_full_metrics.csv`, `docs/vision_rotation_zoom_metrics.csv`, `docs/vision_label_smoothing_full_metrics.csv`, `docs/fusion_full_metrics.csv`, `docs/fusion_label_smoothing_full_metrics.csv`.)
 
-The rotation/zoom augmentation is a good example of why I look at more than one metric — it *improves* AUROC/AUPR but tanks accuracy and F1. Doesn't get called an improvement just because one number went up. The label-smoothing row trades a small (and, per the paired bootstrap below, not statistically significant) amount of AUROC for a real calibration improvement — see the Calibration section for details.
+The rotation/zoom augmentation is a good example of why I look at more than one metric — it *improves* AUROC/AUPR but tanks accuracy and F1. Doesn't get called an improvement just because one number went up. The label-smoothing rows trade a small (and, per paired bootstrap testing below, not statistically significant in either direction) change in AUROC for a real calibration improvement — see the Calibration section for details.
 
 ## Explainability findings
 
@@ -207,7 +208,7 @@ Not a usable fix for either model, though for different reasons. For vision, eve
 
 ### Attempt 3: label smoothing (the one that actually worked)
 
-Both fixes above tried to patch an already-overconfident model after training. Label smoothing works differently — it changes what the model is trained to predict in the first place: instead of pushing toward hard targets (0 or 1), training labels are softened toward 0.05/0.95 (`label_smoothing=0.1` in `configs/vision_label_smoothing.yaml`), which directly discourages the network from ever learning to output near-certain logits.
+Both fixes above tried to patch an already-overconfident model after training. Label smoothing works differently — it changes what the model is trained to predict in the first place: instead of pushing toward hard targets (0 or 1), training labels are softened toward 0.05/0.95 (`label_smoothing=0.1`), which directly discourages the network from ever learning to output near-certain logits.
 
 Retrained the vision model from scratch, same architecture/seed/split as the baseline, only the loss changed:
 
@@ -220,7 +221,18 @@ Retrained the vision model from scratch, same architecture/seed/split as the bas
 
 This is the one fix that actually helped — ECE dropped ~24% relative, Brier improved, and accuracy barely moved. There's a real-looking AUROC drop (0.960 → 0.946). I checked this properly with a paired bootstrap (`src/compare_auroc_paired.py`) — resampling the same test indices for both models each iteration and looking at the distribution of the difference directly, rather than comparing two separately-bootstrapped CIs. Result: mean difference −0.0143, 95% CI [−0.0309, 0.0023], p = 0.087. The CI includes 0, so the drop isn't statistically significant at the conventional 95% threshold — though p=0.087 is a borderline result, not a clean null, so I'd call this "a plausible small cost that this test set can't confirm" rather than "no cost at all."
 
-**Net result of the calibration thread:** the overconfidence was real, precisely diagnosed (71% of test samples in one overconfident bin), and two of three fixes failed for well-understood reasons (wrong granularity for temperature scaling, overfitting for isotonic regression on vision). The one that worked changed training rather than patching the output, with a calibration gain that's solid and a possible AUROC cost that a proper paired test couldn't confirm on this test set — a reasonable, if modest, conclusion: **overconfidence baked in during training is better addressed during training than patched afterward.**
+**Does it generalize to fusion?** Retrained the fusion model the same way (`configs/fusion_label_smoothing.yaml`):
+
+| Metric | Fusion baseline | + Label smoothing |
+|---|---:|---:|
+| ECE | 0.135 | **0.112** |
+| Brier | 0.113 | 0.101 |
+| Accuracy | 87.02% | 86.54% |
+| AUROC | 0.9899 | 0.9927 |
+
+Same calibration improvement (~17% relative ECE drop) as vision. Unlike vision, the point-estimate AUROC actually went *up* slightly — but a paired bootstrap (same method as above) put that at mean diff +0.0028, 95% CI [−0.0032, 0.0104], p = 0.42, clearly not significant. So the fusion result is arguably cleaner than vision's: **a real calibration improvement with no detectable cost — or benefit — to ranking.**
+
+**Net result of the calibration thread:** the overconfidence was real and precisely diagnosed, two of three fixes failed for well-understood reasons, and the one that worked — label smoothing — generalized cleanly from vision to fusion, in both cases with no statistically confirmed cost to ranking. Fusion's result is the strongest evidence: **overconfidence baked in during training is better addressed during training than patched afterward.**
 
 ## Reproducing this
 
@@ -251,6 +263,9 @@ python src/train.py --data-config configs/data.yaml --train-config configs/visio
 # fusion model
 python src/train_fusion.py --data-config configs/data.yaml --train-config configs/fusion.yaml
 
+# fusion with label smoothing
+python src/train_fusion.py --data-config configs/data.yaml --train-config configs/fusion_label_smoothing.yaml
+
 # attention-consistency (precompute lung masks first)
 python data/scripts/precompute_lung_masks.py --train-config configs/vision_attention_consistency.yaml
 python src/train_attention_consistency.py --train-config configs/vision_attention_consistency.yaml
@@ -277,7 +292,9 @@ python src/evaluate_calibration.py --checkpoint checkpoints/vision_baseline/best
 python src/fit_temperature.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/temperature_scaling_vision.csv --output-plot docs/reliability_diagram_vision_after_temp.png
 python src/fit_isotonic.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/isotonic_vision.csv --output-plot docs/reliability_diagram_vision_after_isotonic.png
 python src/evaluate_calibration.py --checkpoint checkpoints/vision_label_smoothing/best_model.pth --output-csv docs/calibration_vision_label_smoothing.csv --output-plot docs/reliability_diagram_vision_label_smoothing.png
+python src/evaluate_calibration.py --checkpoint checkpoints/fusion_label_smoothing/best_model.pth --train-config configs/fusion_label_smoothing.yaml --output-csv docs/calibration_fusion_label_smoothing.csv --output-plot docs/reliability_diagram_fusion_label_smoothing.png
 python src/compare_auroc_paired.py --checkpoint-a checkpoints/vision_baseline/best_model.pth --checkpoint-b checkpoints/vision_label_smoothing/best_model.pth --label-a baseline --label-b label_smoothing --output-csv docs/paired_bootstrap_label_smoothing.csv
+python src/compare_auroc_paired.py --checkpoint-a checkpoints/fusion/best_model.pth --checkpoint-b checkpoints/fusion_label_smoothing/best_model.pth --label-a fusion_baseline --label-b fusion_label_smoothing --train-config configs/fusion.yaml --output-csv docs/paired_bootstrap_fusion_label_smoothing.csv
 ```
 
 Dashboard (Streamlit demo with X-ray upload, prediction, Grad-CAM and counterfactual visualization):
@@ -303,13 +320,13 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 - Several comparisons use only 3 seeds — reported p-values are exploratory, not confirmatory.
 - Lung-energy fraction tells you attention is inside the lung, not that it's on the actual pathological region.
 - Grad-CAM is an interpretation method, not a causal explanation. Same caveat for the occlusion counterfactuals — sensitivity isn't causality.
-- The baseline model is meaningfully overconfident (ECE ~0.135); label smoothing improved this (ECE ~0.103) at a small AUROC cost that a paired bootstrap couldn't confirm as statistically significant (p=0.087) — but I've only validated this on the vision model with one smoothing value.
+- Both models are meaningfully overconfident by default (ECE ~0.135); label smoothing improved this on both (ECE ~0.10–0.11) with no statistically confirmed cost to ranking — but only one smoothing value (0.1) has been tried.
 - This is a research/portfolio prototype. It has not been clinically validated and isn't a diagnostic device.
 
 ## What I'd do differently / next
 
 - More seeds where compute allows — 3 is thin for the statistical claims I'd ideally want to make.
-- Label smoothing worked for calibration but I only tried one value (0.1) and only on the vision model — a smoothing sweep (like the attention-consistency weight sweep) and checking it on the fusion model too would be the natural follow-up.
+- Label smoothing helped both vision and fusion at one value (0.1) — a smoothing sweep (like the attention-consistency weight sweep) to find whether a different value trades off differently is the natural remaining follow-up.
 - Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
 - External validation on a different hospital/dataset.
 - Pathology-level localization annotations instead of just "inside the lung."
