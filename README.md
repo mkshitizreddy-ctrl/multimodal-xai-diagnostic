@@ -5,11 +5,13 @@ An explainable multimodal deep learning pipeline for pediatric pneumonia detecti
 The core idea: it's not enough for a model to say "pneumonia" — I wanted to know *where* it's looking and whether that changes depending on how the model is trained. So this project combines a DenseNet-121 classifier with Grad-CAM, CBAM attention, occlusion-based counterfactuals, lung-localization scoring, and an attention-consistency loss that explicitly nudges the model to look inside the lungs.
 
 [![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions)
+
 Python 3.11+ · MIT License
 
 [Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app)
 
 ![Dashboard demo](docs/screenshots/dashboard_demo.png)
+
 ---
 
 ## Why this project
@@ -20,11 +22,11 @@ Medical imaging models can hit strong accuracy numbers while giving almost no in
 
 ## Research questions
 
-- Can DenseNet-121 classify pneumonia from chest X-rays accurately?
-- Does adding tabular data help over image-only?
-- Does Grad-CAM actually land on clinically relevant regions, or is the model cheating?
-- Does CBAM improve localization — and does that hold up across seeds?
-- Can I explicitly train attention to stay inside the lungs, and what does that cost in accuracy?
+* Can DenseNet-121 classify pneumonia from chest X-rays accurately?
+* Does adding tabular data help over image-only?
+* Does Grad-CAM actually land on clinically relevant regions, or is the model cheating?
+* Does CBAM improve localization — and does that hold up across seeds?
+* Can I explicitly train attention to stay inside the lungs, and what does that cost in accuracy?
 
 ## What's in here
 
@@ -74,9 +76,9 @@ Chest X-ray Pneumonia dataset (pediatric, ~1–5 years, Guangzhou Women and Chil
 
 Patient-level splitting where possible (pneumonia filenames carry patient IDs; normal-class images don't, so I conservatively treated each as a unique patient):
 
-- Train: ~4,434
-- Val: ~798
-- Test: ~624 (original dataset test split, preserved as-is)
+* Train: ~4,434
+* Val: ~798
+* Test: ~624 (original dataset test split, preserved as-is)
 
 ## Stack
 
@@ -102,11 +104,11 @@ multimodal-xai-diagnostic/
 
 ## Results
 
-| Model / Experiment     | Accuracy | Precision | Recall |   F1   | AUROC  |  AUPR  |
-| ----------------------- | -------: | --------: | -----: | -----: | -----: | -----: |
-| Vision baseline         |  86.38%  |   0.8224  | 0.9974 | 0.9015 | 0.9604 | 0.9628 |
-| Vision + rotation/zoom  |  73.88%  |   0.7052  | 1.0000 | 0.8271 | 0.9651 | 0.9730 |
-| Multimodal fusion       |  87.02%  |   0.8280  | 1.0000 | 0.9059 | 0.9899 | 0.9921 |
+| Model / Experiment     | Accuracy | Precision | Recall |     F1 |  AUROC |   AUPR |
+| ---------------------- | -------: | --------: | -----: | -----: | -----: | -----: |
+| Vision baseline        |   86.38% |    0.8224 | 0.9974 | 0.9015 | 0.9604 | 0.9628 |
+| Vision + rotation/zoom |   73.88% |    0.7052 | 1.0000 | 0.8271 | 0.9651 | 0.9730 |
+| Multimodal fusion      |   87.02% |    0.8280 | 1.0000 | 0.9059 | 0.9899 | 0.9921 |
 
 (Full CSVs with bootstrap CIs in `docs/vision_full_metrics.csv`, `docs/vision_rotation_zoom_metrics.csv`, `docs/fusion_full_metrics.csv`.)
 
@@ -126,11 +128,11 @@ CBAM (channel + spatial attention) was evaluated across 3 seeds (42, 123, 2024),
 
 Vision-only, test AUROC:
 
-| Seed | No CBAM | CBAM | Diff |
-|---|---:|---:|---:|
-| 42 | 0.9592 | 0.9608 | +0.0016 |
-| 123 | 0.9695 | 0.9445 | −0.0250 |
-| 2024 | 0.9736 | 0.9604 | −0.0132 |
+| Seed      |         No CBAM |            CBAM |             Diff |
+| --------- | --------------: | --------------: | ---------------: |
+| 42        |          0.9592 |          0.9608 |          +0.0016 |
+| 123       |          0.9695 |          0.9445 |          −0.0250 |
+| 2024      |          0.9736 |          0.9604 |          −0.0132 |
 | Mean ± SD | 0.9674 ± 0.0074 | 0.9552 ± 0.0093 | −0.0122 ± 0.0139 |
 
 Localization diff: +0.060 ± 0.076, p = 0.31 (exploratory, not significant).
@@ -147,16 +149,29 @@ Across 3 seeds, localization improved consistently (+0.134 ± 0.055, p = 0.051 �
 
 A weight sweep makes the trade-off explicit:
 
-| Weight | Test AUROC | Localization |
-|---:|---:|---:|
+|          Weight |      Test AUROC |  Localization |
+| --------------: | --------------: | ------------: |
 | 0.0 (CBAM only) | 0.9552 ± 0.0093 | 0.462 ± 0.062 |
-| 0.05 | 0.9356 ± 0.0119 | 0.550 ± 0.022 |
-| 0.10 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
-| 0.20 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
+|            0.05 | 0.9356 ± 0.0119 | 0.550 ± 0.022 |
+|            0.10 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
+|            0.20 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
 
 Better localization, worse AUROC, diminishing returns on localization as the weight climbs. I treat this as a tunable design decision, not a free win — and it's the honest way to present it.
 
 One earlier run at weight 0.03 gave AUROC 0.8933 with a suspicious 1.0000 validation score — didn't fit the sweep trend, so I flagged it as an unreplicated outlier rather than cherry-picking it into the results.
+
+## Calibration
+
+Accuracy and AUROC say nothing about whether the model's confidence scores are trustworthy, so I ran a separate calibration check (`src/evaluate_calibration.py`): Expected Calibration Error (ECE) and a reliability diagram, on the held-out test set.
+
+| Model           |                           ECE | Brier |
+| --------------- | ----------------------------: | ----: |
+| Vision baseline | 0.136 (95% CI [0.113, 0.162]) | 0.116 |
+| Fusion          | 0.135 (95% CI [0.110, 0.160]) | 0.113 |
+
+Both models are meaningfully overconfident, and it's concentrated in one place: **71% of the test set (442/624 images) falls in the 0.9–1.0 confidence bin**, where the model's average stated confidence is 99.5% but its actual accuracy is only 87.3%. So for the large majority of predictions, "the model is nearly certain" overstates how often it's actually right — something worth knowing before treating a high confidence score as a proxy for correctness. The remaining bins (0.2–0.8) show large gaps too, but with only 4–10 samples each, I don't read much into their individual values — too few points for a reliable per-bin estimate.
+
+Adding fusion features didn't meaningfully change calibration (0.136 vs. 0.135) — consistent with the earlier finding that CBAM's localization effect on fusion diverges from vision-only; calibration looks like a property of the underlying vision backbone/training setup rather than something fusion or attention changes.
 
 ## Reproducing this
 
@@ -221,20 +236,20 @@ Currently: 84 passed, 6 warnings (warnings are from dependency code, not test fa
 
 Worth being upfront about, since I'd rather someone find these in the README than in the viva:
 
-- Tabular fusion features are synthetic — this shows the architecture can exploit a signal, not that real clinical vitals would help.
-- Dataset is modest compared to large-scale medical imaging benchmarks.
-- Several comparisons use only 3 seeds — reported p-values are exploratory, not confirmatory.
-- Lung-energy fraction tells you attention is inside the lung, not that it's on the actual pathological region.
-- Grad-CAM is an interpretation method, not a causal explanation. Same caveat for the occlusion counterfactuals — sensitivity isn't causality.
-- This is a research/portfolio prototype. It has not been clinically validated and isn't a diagnostic device.
+* Tabular fusion features are synthetic — this shows the architecture can exploit a signal, not that real clinical vitals would help.
+* Dataset is modest compared to large-scale medical imaging benchmarks.
+* Several comparisons use only 3 seeds — reported p-values are exploratory, not confirmatory.
+* Lung-energy fraction tells you attention is inside the lung, not that it's on the actual pathological region.
+* Grad-CAM is an interpretation method, not a causal explanation. Same caveat for the occlusion counterfactuals — sensitivity isn't causality.
+* This is a research/portfolio prototype. It has not been clinically validated and isn't a diagnostic device.
 
 ## What I'd do differently / next
 
-- More seeds where compute allows — 3 is thin for the statistical claims I'd ideally want to make.
-- Calibration analysis (reliability diagrams, ECE) — currently missing, and probably the single highest-value addition left.
-- Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
-- External validation on a different hospital/dataset.
-- Pathology-level localization annotations instead of just "inside the lung."
+* More seeds where compute allows — 3 is thin for the statistical claims I'd ideally want to make.
+* Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
+* External validation on a different hospital/dataset.
+* Pathology-level localization annotations instead of just "inside the lung."
+* Model confidence is not currently used anywhere downstream (thresholding, dashboard display) with calibration in mind — a temperature-scaling or Platt-scaling post-hoc fix is the natural next step given the ECE result above.
 
 ## Citation
 
