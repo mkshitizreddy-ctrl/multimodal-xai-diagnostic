@@ -173,6 +173,19 @@ Both models are meaningfully overconfident, and it's concentrated in one place: 
 
 Adding fusion features didn't meaningfully change calibration (0.136 vs. 0.135) — consistent with the earlier finding that CBAM's localization effect on fusion diverges from vision-only; calibration looks like a property of the underlying vision backbone/training setup rather than something fusion or attention changes.
 
+### Attempting a fix: temperature scaling
+
+Given the overconfidence above, I tried the standard fix — temperature scaling (Guo et al., 2017): fit a single scalar T on validation logits only, apply it to test logits before the sigmoid.
+
+| Model           | T (fit on val) | ECE before → after | Brier before → after |
+| --------------- | -------------: | ------------------ | -------------------- |
+| Vision baseline |           1.05 | 0.136 → 0.137      | 0.116 → 0.116        |
+| Fusion          |           1.21 | 0.135 → 0.136      | 0.113 → 0.110        |
+
+It didn't work, in any meaningful sense — ECE was essentially unchanged (if anything, marginally worse) for both models, despite fusion needing a much larger correction than vision (T=1.21 vs. 1.05). AUROC was unaffected as expected (rank-preserving transform; fusion showed a ~0.0003 numerical wobble from floating-point tie-breaking on near-identical logits, not a real ranking change).
+
+I read this as evidence that the miscalibration isn't simple global overconfidence that one scalar can absorb — it's concentrated specifically in the 0.9–1.0 confidence bin (71% of the test set), and a single T fit on the whole validation distribution doesn't target that region well. A more targeted fix (binning-based calibration like isotonic regression, or per-bin temperature) would be the next thing to try, not a bigger/smaller T.
+
 ## Reproducing this
 
 ```bash
@@ -249,7 +262,7 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 * Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
 * External validation on a different hospital/dataset.
 * Pathology-level localization annotations instead of just "inside the lung."
-* Model confidence is not currently used anywhere downstream (thresholding, dashboard display) with calibration in mind — a temperature-scaling or Platt-scaling post-hoc fix is the natural next step given the ECE result above.
+* A binning-based calibration method (isotonic regression, Platt scaling per-bin) rather than a single global temperature, given that temperature scaling didn't meaningfully help here.
 
 ## Citation
 
