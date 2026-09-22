@@ -1,0 +1,41 @@
+# Vision-only DenseNet-121 with label smoothing during training, to test
+# whether it fixes the overconfidence found in evaluate_calibration.py
+# (ECE ~0.136 on vision_baseline). Identical to vision_baseline.yaml except
+# for label_smoothing and separate checkpoint/log dirs, so this is a clean,
+# directly comparable experiment.
+
+data:
+  train_csv: "data/processed/train.csv"
+  val_csv: "data/processed/val.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+
+model:
+  name: "densenet121"
+  pretrained: true
+  dropout: 0.2
+  use_cbam: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+  # 0.1 is the standard starting point (Szegedy et al. 2016 used this for
+  # ImageNet; Müller et al. 2019 found it also helps calibration directly).
+  label_smoothing: 0.1
+
+checkpoint:
+  dir: "checkpoints/vision_label_smoothing"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/vision_label_smoothing"
+  log_every_n_steps: 50

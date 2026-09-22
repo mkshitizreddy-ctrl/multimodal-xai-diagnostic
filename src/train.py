@@ -75,6 +75,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         num_workers=train_cfg["train"]["num_workers"],
         pin_memory=pin_memory,
     )
+
     val_loader = DataLoader(
         val_ds,
         batch_size=train_cfg["train"]["batch_size"],
@@ -82,6 +83,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         num_workers=train_cfg["train"]["num_workers"],
         pin_memory=pin_memory,
     )
+
     return train_loader, val_loader, classes, tabular_stats
 
 
@@ -90,29 +92,58 @@ def compute_macro_auroc(y_true, y_pred, classes) -> tuple[float, dict]:
     examples in this batch/split, which is common for rare pathologies."""
     per_class = {}
     valid_scores = []
+
     for i, cls in enumerate(classes):
         if len(set(y_true[:, i].tolist())) < 2:
             continue  # AUROC undefined with only one class present
+
         score = roc_auc_score(y_true[:, i], y_pred[:, i])
         per_class[cls] = score
         valid_scores.append(score)
+
     macro = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
+
     return macro, per_class
 
 
-def train_one_epoch(model, loader, optimizer, criterion, device) -> float:
+def train_one_epoch(
+    model,
+    loader,
+    optimizer,
+    criterion,
+    device,
+    label_smoothing: float = 0.0,
+) -> float:
     model.train()
     running_loss = 0.0
-    for images, _tabular, labels in tqdm(loader, desc="train", leave=False):
+
+    for images, _tabular, labels in tqdm(
+        loader,
+        desc="train",
+        leave=False,
+    ):
         images, labels = images.to(device), labels.to(device)
 
+        # Pull hard 0/1 targets toward 0.5 so the model is never trained to
+        # push logits to extremes. Applied to training targets only - the
+        # validation loss below stays on real labels since it's diagnostic
+        # (best-model selection uses val_macro_auroc, not val_loss).
+        if label_smoothing > 0:
+            labels = (
+                labels * (1 - label_smoothing)
+                + 0.5 * label_smoothing
+            )
+
         optimizer.zero_grad()
+
         logits = model(images)
         loss = criterion(logits, labels)
+
         loss.backward()
         optimizer.step()
 
         running_loss += loss.item() * images.size(0)
+
     return running_loss / len(loader.dataset)
 
 
@@ -122,10 +153,16 @@ def evaluate(model, loader, criterion, classes, device) -> dict:
     running_loss = 0.0
     all_preds, all_labels = [], []
 
-    for images, _tabular, labels in tqdm(loader, desc="val", leave=False):
+    for images, _tabular, labels in tqdm(
+        loader,
+        desc="val",
+        leave=False,
+    ):
         images, labels = images.to(device), labels.to(device)
+
         logits = model(images)
         loss = criterion(logits, labels)
+
         running_loss += loss.item() * images.size(0)
 
         all_preds.append(torch.sigmoid(logits).cpu())
@@ -133,7 +170,12 @@ def evaluate(model, loader, criterion, classes, device) -> dict:
 
     all_preds = torch.cat(all_preds).numpy()
     all_labels = torch.cat(all_labels).numpy()
-    macro_auroc, per_class_auroc = compute_macro_auroc(all_labels, all_preds, classes)
+
+    macro_auroc, per_class_auroc = compute_macro_auroc(
+        all_labels,
+        all_preds,
+        classes,
+    )
 
     return {
         "val_loss": running_loss / len(loader.dataset),
@@ -144,18 +186,34 @@ def evaluate(model, loader, criterion, classes, device) -> dict:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-config", default="configs/data.yaml")
-    parser.add_argument("--train-config", default="configs/vision_baseline.yaml")
+
+    parser.add_argument(
+        "--data-config",
+        default="configs/data.yaml",
+    )
+
+    parser.add_argument(
+        "--train-config",
+        default="configs/vision_baseline.yaml",
+    )
+
     args = parser.parse_args()
 
     data_cfg = load_config(args.data_config)
     train_cfg = load_config(args.train_config)
 
     torch.manual_seed(train_cfg["train"]["seed"])
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )
+
     print(f"Using device: {device}")
 
-    train_loader, val_loader, classes, tabular_stats = build_dataloaders(data_cfg, train_cfg)
+    train_loader, val_loader, classes, tabular_stats = build_dataloaders(
+        data_cfg,
+        train_cfg,
+    )
 
     model = ChestXrayVisionModel(
         num_classes=len(classes),
@@ -167,6 +225,7 @@ def main():
     ).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
+
     optimizer = torch.optim.AdamW(
         model.parameters(),
         # float() guards against a classic PyYAML gotcha: scientific
@@ -177,14 +236,24 @@ def main():
         lr=float(train_cfg["train"]["lr"]),
         weight_decay=float(train_cfg["train"]["weight_decay"]),
     )
+
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=train_cfg["train"]["epochs"]
+        optimizer,
+        T_max=train_cfg["train"]["epochs"],
     )
 
     checkpoint_dir = Path(train_cfg["checkpoint"]["dir"])
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     log_dir = Path(train_cfg["logging"]["log_dir"])
-    log_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     metrics_csv = log_dir / "metrics.csv"
 
     best_metric = -1.0
@@ -192,51 +261,120 @@ def main():
 
     with open(metrics_csv, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["epoch", "train_loss", "val_loss", "val_macro_auroc"])
 
-    for epoch in range(1, train_cfg["train"]["epochs"] + 1):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
-        val_metrics = evaluate(model, val_loader, criterion, classes, device)
+        writer.writerow(
+            [
+                "epoch",
+                "train_loss",
+                "val_loss",
+                "val_macro_auroc",
+            ]
+        )
+
+    for epoch in range(
+        1,
+        train_cfg["train"]["epochs"] + 1,
+    ):
+        train_loss = train_one_epoch(
+            model,
+            train_loader,
+            optimizer,
+            criterion,
+            device,
+            label_smoothing=float(
+                train_cfg["train"].get(
+                    "label_smoothing",
+                    0.0,
+                )
+            ),
+        )
+
+        val_metrics = evaluate(
+            model,
+            val_loader,
+            criterion,
+            classes,
+            device,
+        )
+
         scheduler.step()
 
         print(
             f"Epoch {epoch}/{train_cfg['train']['epochs']} | "
-            f"train_loss={train_loss:.4f} | val_loss={val_metrics['val_loss']:.4f} | "
+            f"train_loss={train_loss:.4f} | "
+            f"val_loss={val_metrics['val_loss']:.4f} | "
             f"val_macro_auroc={val_metrics['val_macro_auroc']:.4f}"
         )
 
         with open(metrics_csv, "a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([epoch, train_loss, val_metrics["val_loss"], val_metrics["val_macro_auroc"]])
+
+            writer.writerow(
+                [
+                    epoch,
+                    train_loss,
+                    val_metrics["val_loss"],
+                    val_metrics["val_macro_auroc"],
+                ]
+            )
 
         current_metric = val_metrics["val_macro_auroc"]
+
         if current_metric > best_metric:
             best_metric = current_metric
             epochs_without_improvement = 0
+
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
                     "classes": classes,
                     "tabular_stats": tabular_stats,
                     "epoch": epoch,
+
                     # Saved so evaluate.py / dashboard / explain scripts can
                     # rebuild the exact same architecture before loading
                     # weights (a CBAM checkpoint's state_dict has extra keys
                     # a plain model doesn't, so this has to match or
                     # load_state_dict fails).
                     "use_cbam": model.use_cbam,
+
+                    # Save the training label-smoothing setting so downstream
+                    # evaluation/reporting code can identify the exact
+                    # training configuration used for this checkpoint.
+                    "label_smoothing": float(
+                        train_cfg["train"].get(
+                            "label_smoothing",
+                            0.0,
+                        )
+                    ),
                 },
                 checkpoint_dir / "best_model.pth",
             )
-            print(f"  -> new best model saved (val_macro_auroc={best_metric:.4f})")
+
+            print(
+                f"  -> new best model saved "
+                f"(val_macro_auroc={best_metric:.4f})"
+            )
+
         else:
             epochs_without_improvement += 1
-            if epochs_without_improvement >= train_cfg["train"]["early_stopping_patience"]:
-                print(f"Early stopping at epoch {epoch} (no improvement for "
-                      f"{train_cfg['train']['early_stopping_patience']} epochs).")
+
+            if (
+                epochs_without_improvement
+                >= train_cfg["train"]["early_stopping_patience"]
+            ):
+                print(
+                    f"Early stopping at epoch {epoch} "
+                    f"(no improvement for "
+                    f"{train_cfg['train']['early_stopping_patience']} epochs)."
+                )
                 break
 
-    print(f"Training complete. Best val_macro_auroc: {best_metric:.4f}")
+    print(
+        f"Training complete. Best val_macro_auroc: "
+        f"{best_metric:.4f}"
+    )
+
     print(f"Metrics logged to {metrics_csv}")
 
 
