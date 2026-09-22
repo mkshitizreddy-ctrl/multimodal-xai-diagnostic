@@ -1,0 +1,2 @@
+label_a,label_b,auroc_a,auroc_b,mean_diff,ci_low,ci_high,p_value,n
+fusion_baseline,fusion_label_smoothing,0.9898750821827744,0.9926692965154503,0.0028295893759833807,-0.003229034092956065,0.010380940601470968,0.421,624
