@@ -39,7 +39,7 @@ Medical imaging models can hit strong accuracy numbers while giving almost no in
 
 **Attention modelling** — CBAM (channel + spatial), evaluated across multiple seeds, on both vision-only and fusion models, plus an attention-consistency loss trained against precomputed lung masks.
 
-**Calibration** — Expected Calibration Error and reliability diagrams, plus three attempted fixes (temperature scaling, isotonic regression, label smoothing).
+**Calibration** — Expected Calibration Error and reliability diagrams, plus three attempted fixes (temperature scaling, isotonic regression, label smoothing), with a paired-bootstrap significance check on the trade-off.
 
 **Engineering** — configurable training pipeline, automated eval scripts, GitHub Actions CI, 84 passing tests.
 
@@ -96,7 +96,8 @@ multimodal-xai-diagnostic/
 │   ├── data/                 # dataset classes
 │   ├── models/                # vision encoder, fusion, CBAM, attention-consistency loss
 │   ├── explain/                # Grad-CAM, counterfactuals, lung segmentation/localization
-│   ├── evaluate*.py, evaluate_calibration.py, fit_temperature.py, fit_isotonic.py
+│   ├── evaluate*.py, evaluate_calibration.py, fit_temperature.py, fit_isotonic.py,
+│   │   compare_auroc_paired.py
 │   ├── train*.py
 ├── dashboard/app.py          # Streamlit demo
 ├── notebooks/                # baseline + fusion ablation results
@@ -117,7 +118,7 @@ multimodal-xai-diagnostic/
 
 (Full CSVs with bootstrap CIs in `docs/vision_full_metrics.csv`, `docs/vision_rotation_zoom_metrics.csv`, `docs/vision_label_smoothing_full_metrics.csv`, `docs/fusion_full_metrics.csv`.)
 
-The rotation/zoom augmentation is a good example of why I look at more than one metric — it *improves* AUROC/AUPR but tanks accuracy and F1. Doesn't get called an improvement just because one number went up. The label-smoothing row trades a small amount of AUROC for a real calibration improvement — see the Calibration section below for why that's the point of it, not a downside to hide.
+The rotation/zoom augmentation is a good example of why I look at more than one metric — it *improves* AUROC/AUPR but tanks accuracy and F1. Doesn't get called an improvement just because one number went up. The label-smoothing row trades a small (and, per the paired bootstrap below, not statistically significant) amount of AUROC for a real calibration improvement — see the Calibration section for details.
 
 ## Explainability findings
 
@@ -215,11 +216,11 @@ Retrained the vision model from scratch, same architecture/seed/split as the bas
 | ECE | 0.136 | **0.103** |
 | Brier | 0.116 | 0.108 |
 | Accuracy | 86.38% | 86.06% |
-| AUROC | 0.9604 [0.9412, 0.9757] | 0.9459 [0.9243, 0.9650] |
+| AUROC | 0.9604 | 0.9459 |
 
-This is the one fix that actually helped — ECE dropped ~24% relative, Brier improved, and accuracy barely moved. There's a real-looking AUROC drop (0.960 → 0.946), but the two 95% CIs overlap substantially, so on this test set (n=624) it isn't clearly distinguishable from sampling noise — worth being precise here: these are two independently-bootstrapped CIs, not a paired comparison on shared resamples, which would be the more rigorous way to test the difference directly. I'd treat the calibration gain as the reliable part of this result and the AUROC cost as plausible but not confirmed.
+This is the one fix that actually helped — ECE dropped ~24% relative, Brier improved, and accuracy barely moved. There's a real-looking AUROC drop (0.960 → 0.946). I checked this properly with a paired bootstrap (`src/compare_auroc_paired.py`) — resampling the same test indices for both models each iteration and looking at the distribution of the difference directly, rather than comparing two separately-bootstrapped CIs. Result: mean difference −0.0143, 95% CI [−0.0309, 0.0023], p = 0.087. The CI includes 0, so the drop isn't statistically significant at the conventional 95% threshold — though p=0.087 is a borderline result, not a clean null, so I'd call this "a plausible small cost that this test set can't confirm" rather than "no cost at all."
 
-**Net result of the calibration thread:** the overconfidence was real, precisely diagnosed (71% of test samples in one overconfident bin), and two of three fixes failed for well-understood reasons (wrong granularity for temperature scaling, overfitting for isotonic regression on vision). The one that worked changed training rather than patching the output — a reasonable, if modest, conclusion: **overconfidence baked in during training is better addressed during training than patched afterward.**
+**Net result of the calibration thread:** the overconfidence was real, precisely diagnosed (71% of test samples in one overconfident bin), and two of three fixes failed for well-understood reasons (wrong granularity for temperature scaling, overfitting for isotonic regression on vision). The one that worked changed training rather than patching the output, with a calibration gain that's solid and a possible AUROC cost that a proper paired test couldn't confirm on this test set — a reasonable, if modest, conclusion: **overconfidence baked in during training is better addressed during training than patched afterward.**
 
 ## Reproducing this
 
@@ -276,6 +277,7 @@ python src/evaluate_calibration.py --checkpoint checkpoints/vision_baseline/best
 python src/fit_temperature.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/temperature_scaling_vision.csv --output-plot docs/reliability_diagram_vision_after_temp.png
 python src/fit_isotonic.py --checkpoint checkpoints/vision_baseline/best_model.pth --output-csv docs/isotonic_vision.csv --output-plot docs/reliability_diagram_vision_after_isotonic.png
 python src/evaluate_calibration.py --checkpoint checkpoints/vision_label_smoothing/best_model.pth --output-csv docs/calibration_vision_label_smoothing.csv --output-plot docs/reliability_diagram_vision_label_smoothing.png
+python src/compare_auroc_paired.py --checkpoint-a checkpoints/vision_baseline/best_model.pth --checkpoint-b checkpoints/vision_label_smoothing/best_model.pth --label-a baseline --label-b label_smoothing --output-csv docs/paired_bootstrap_label_smoothing.csv
 ```
 
 Dashboard (Streamlit demo with X-ray upload, prediction, Grad-CAM and counterfactual visualization):
@@ -301,14 +303,13 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 - Several comparisons use only 3 seeds — reported p-values are exploratory, not confirmatory.
 - Lung-energy fraction tells you attention is inside the lung, not that it's on the actual pathological region.
 - Grad-CAM is an interpretation method, not a causal explanation. Same caveat for the occlusion counterfactuals — sensitivity isn't causality.
-- The baseline model is meaningfully overconfident (ECE ~0.135); label smoothing improved this (ECE ~0.103) at a small, not-clearly-significant AUROC cost, but I've only validated this on the vision model with one smoothing value.
-- The AUROC comparison for label smoothing uses two independently-bootstrapped CIs rather than a paired bootstrap on shared resamples — a real but slightly less rigorous comparison than ideal.
+- The baseline model is meaningfully overconfident (ECE ~0.135); label smoothing improved this (ECE ~0.103) at a small AUROC cost that a paired bootstrap couldn't confirm as statistically significant (p=0.087) — but I've only validated this on the vision model with one smoothing value.
 - This is a research/portfolio prototype. It has not been clinically validated and isn't a diagnostic device.
 
 ## What I'd do differently / next
 
 - More seeds where compute allows — 3 is thin for the statistical claims I'd ideally want to make.
-- Label smoothing worked for calibration but I only tried one value (0.1) and only on the vision model — a smoothing sweep (like the attention-consistency weight sweep) and checking it on the fusion model too would be the natural follow-up. A paired bootstrap on the AUROC comparison would also make that trade-off claim more rigorous.
+- Label smoothing worked for calibration but I only tried one value (0.1) and only on the vision model — a smoothing sweep (like the attention-consistency weight sweep) and checking it on the fusion model too would be the natural follow-up.
 - Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
 - External validation on a different hospital/dataset.
 - Pathology-level localization annotations instead of just "inside the lung."
