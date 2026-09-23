@@ -197,12 +197,48 @@ def main():
         default="configs/vision_baseline.yaml",
     )
 
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override train_cfg['train']['seed'] without editing the config file. "
+        "Used for multi-seed sweeps (e.g. the CBAM comparison) so each run's seed "
+        "is explicit in the command rather than hand-edited into YAML.",
+    )
+
+    parser.add_argument(
+        "--use-cbam",
+        type=str,
+        default=None,
+        choices=["true", "false"],
+        help="Override train_cfg['model']['use_cbam'] without editing the config file.",
+    )
+
+    parser.add_argument(
+        "--checkpoint-dir",
+        default=None,
+        help="Override train_cfg['checkpoint']['dir'] without editing the config file. "
+        "Useful for multi-seed sweeps so each run gets its own checkpoint folder "
+        "instead of overwriting the previous seed's.",
+    )
+
+    parser.add_argument(
+        "--log-dir",
+        default=None,
+        help="Override train_cfg['logging']['log_dir'] without editing the config file.",
+    )
+
     args = parser.parse_args()
 
     data_cfg = load_config(args.data_config)
     train_cfg = load_config(args.train_config)
 
+    if args.seed is not None:
+        train_cfg["train"]["seed"] = args.seed
+
     torch.manual_seed(train_cfg["train"]["seed"])
+
+    print(f"Using seed: {train_cfg['train']['seed']}")
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
@@ -214,6 +250,15 @@ def main():
         data_cfg,
         train_cfg,
     )
+
+    if args.use_cbam is not None:
+        train_cfg["model"]["use_cbam"] = args.use_cbam == "true"
+
+    if args.checkpoint_dir is not None:
+        train_cfg["checkpoint"]["dir"] = args.checkpoint_dir
+
+    if args.log_dir is not None:
+        train_cfg["logging"]["log_dir"] = args.log_dir
 
     model = ChestXrayVisionModel(
         num_classes=len(classes),
