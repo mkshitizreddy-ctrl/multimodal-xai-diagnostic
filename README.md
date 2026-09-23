@@ -131,7 +131,7 @@ The rotation/zoom augmentation is a good example of why I look at more than one 
 
 ## CBAM — and why the story isn't simple
 
-CBAM (channel + spatial attention) was evaluated across 3 seeds (42, 123, 2024), on both the vision-only and fusion models.
+CBAM (channel + spatial attention) was evaluated across 5 seeds (42, 123, 2024, 7, 2025) on the vision-only model — extended from an initial 3 seeds after seeing how much the estimate moved as more seeds were added (see below). Also evaluated across 3 seeds on the fusion model.
 
 Vision-only, test AUROC:
 
@@ -140,13 +140,32 @@ Vision-only, test AUROC:
 | 42 | 0.9592 | 0.9608 | +0.0016 |
 | 123 | 0.9695 | 0.9445 | −0.0250 |
 | 2024 | 0.9736 | 0.9604 | −0.0132 |
-| Mean ± SD | 0.9674 ± 0.0074 | 0.9552 ± 0.0093 | −0.0122 ± 0.0139 |
+| 7 | 0.9280 | 0.9508 | +0.0228 |
+| 2025 | 0.9673 | 0.9628 | −0.0045 |
+| Mean ± SD | 0.9595 ± 0.0184 | 0.9559 ± 0.0079 | −0.0037 ± 0.0179 |
 
-Localization diff: +0.060 ± 0.076, p = 0.31 (exploratory, not significant).
+Paired t-test: p = 0.67 (was p = 0.31 at 3 seeds).
 
-An earlier single-seed run had suggested a much stronger effect — that turned out to be **pseudo-replication** (treating individual images as independent replicates when the actual unit of replication is the training run/seed). I reran it properly across 3 seeds rather than quietly keeping the flattering number. Full details in `CHANGELOG.md`.
+Vision-only, lung-energy localization:
 
-On the fusion model, CBAM's localization effect basically vanished (mean diff +0.0003 ± 0.085, p = 0.995) — so whatever CBAM is doing, it's architecture-dependent and doesn't transfer cleanly from vision-only to fusion.
+| Seed | No CBAM | CBAM | Diff |
+|---|---:|---:|---:|
+| 42 | 0.4155 | 0.5110 | +0.0955 |
+| 123 | 0.4217 | 0.5717 | +0.1499 |
+| 2024 | 0.4624 | 0.4703 | +0.0079 |
+| 7 | 0.4720 | 0.3400 | −0.1320 |
+| 2025 | 0.4240 | 0.4480 | +0.0240 |
+| Mean ± SD | 0.4391 ± 0.0261 | 0.4682 ± 0.0857 | +0.0291 ± 0.1066 |
+
+Paired t-test: p = 0.57 (was p = 0.31 at 3 seeds).
+
+**What changed going from 3 to 5 seeds, and why it matters:** the original 3-seed localization result looked like a fairly consistent positive trend (all 3 seeds favored CBAM, p=0.31). Adding seeds 7 and 2025 changed that — seed 7 is the only one of five where CBAM's localization is actually *worse* than without it (a large −0.132 swing, the opposite direction from every other seed), and it also has the weakest no-CBAM AUROC of any seed (0.928). That single seed roughly halved the mean localization effect and pushed AUROC's already-small diff even closer to zero. I don't have a principled reason to exclude seed 7 — no red flag like the validation-score inconsistency that got the weight=0.03 attention-consistency run flagged as an outlier — so it stays in.
+
+**Honest conclusion:** with 5 seeds instead of 3, CBAM shows no reliable effect on AUROC (p=0.67) and no longer even shows a consistent positive-direction trend on localization (4 of 5 seeds favor CBAM, but the sizes range from +0.008 to +0.150, and one seed reverses the direction entirely, p=0.57). One consistent pattern that does hold across both seed counts: CBAM's AUROC is noticeably more stable run-to-run than no-CBAM's (SD 0.0079 vs. 0.0184) — even though it doesn't reliably improve the mean, it may reduce variance, which is a different and arguably more interesting property than the one I originally set out to test.
+
+An earlier single-seed run had suggested a much stronger localization effect — that turned out to be **pseudo-replication** (treating individual images as independent replicates when the actual unit of replication is the training run/seed). Full details in `CHANGELOG.md`.
+
+On the fusion model (3 seeds), CBAM's localization effect basically vanished (mean diff +0.0003 ± 0.085, p = 0.995) — so whatever CBAM is doing, it's architecture-dependent and doesn't transfer cleanly from vision-only to fusion, and even the vision-only effect doesn't hold up as seed count increases.
 
 ## Attention-consistency training
 
@@ -344,6 +363,7 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 - External validation on a different hospital/dataset.
 - Pathology-level localization annotations instead of just "inside the lung."
 - The smoothing-value sweep (0.05/0.1/0.2) showed calibration improves at every value but isn't clean or monotonic at a single seed - multiple seeds per value would be needed to say anything definitive about which value is actually best.
+- CBAM's vision-only comparison went from 3 to 5 seeds and the apparent effect shrank in both AUROC and localization - a real demonstration of why 3 seeds was too few. The attention-consistency and fusion-CBAM comparisons are still at 3 seeds and would likely benefit from the same treatment.
 
 ## Citation
 
