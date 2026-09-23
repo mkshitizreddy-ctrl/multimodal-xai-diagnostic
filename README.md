@@ -232,6 +232,19 @@ This is the one fix that actually helped — ECE dropped ~24% relative, Brier im
 
 Same calibration improvement (~17% relative ECE drop) as vision. Unlike vision, the point-estimate AUROC actually went *up* slightly — but a paired bootstrap (same method as above) put that at mean diff +0.0028, 95% CI [−0.0032, 0.0104], p = 0.42, clearly not significant. So the fusion result is arguably cleaner than vision's: **a real calibration improvement with no detectable cost — or benefit — to ranking.**
 
+**Does the smoothing value matter?** Tried three values on the vision model (0.05, 0.1, 0.2), same seed/architecture:
+
+| Smoothing | ECE | Brier | Accuracy | AUROC |
+|---:|---:|---:|---:|---:|
+| 0.0 (baseline) | 0.136 | 0.116 | 86.38% | 0.9604 |
+| 0.05 | 0.101 | 0.097 | 87.98% | 0.9574 |
+| 0.10 | 0.103 | 0.108 | 86.06% | 0.9459 |
+| 0.20 | 0.106 | 0.078 | 91.03% | 0.9652 |
+
+ECE improves at every value tried, but not monotonically — best at 0.05, not 0.2. The 0.2 run's accuracy and AUROC look like they beat baseline outright, which would be surprising (label smoothing is supposed to trade accuracy for calibration, not improve both), so I checked it with the same paired bootstrap as before: mean diff +0.0047, 95% CI [−0.0089, 0.0190], p = 0.54. Not significant — consistent with single-seed noise (the 0.2 run also early-stopped noticeably earlier than the others, at epoch 5 vs. 7–9), not a real effect of that smoothing value.
+
+**Honest conclusion:** label smoothing reliably improves calibration somewhere in the 0.05–0.2 range with no confirmed accuracy/AUROC cost, but a single seed per value can't tell you which exact value is optimal — the differences between 0.05, 0.1, and 0.2 are themselves within noise of each other. A real answer to "what's the best smoothing value" would need multiple seeds per value, the same lesson the CBAM and attention-consistency experiments already taught.
+
 **Net result of the calibration thread:** the overconfidence was real and precisely diagnosed, two of three fixes failed for well-understood reasons, and the one that worked — label smoothing — generalized cleanly from vision to fusion, in both cases with no statistically confirmed cost to ranking. Fusion's result is the strongest evidence: **overconfidence baked in during training is better addressed during training than patched afterward.**
 
 ## Reproducing this
@@ -330,6 +343,7 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 - Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
 - External validation on a different hospital/dataset.
 - Pathology-level localization annotations instead of just "inside the lung."
+- The smoothing-value sweep (0.05/0.1/0.2) showed calibration improves at every value but isn't clean or monotonic at a single seed - multiple seeds per value would be needed to say anything definitive about which value is actually best.
 
 ## Citation
 
