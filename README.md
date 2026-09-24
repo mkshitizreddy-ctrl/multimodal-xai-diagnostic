@@ -5,9 +5,10 @@ An explainable multimodal deep learning pipeline for pediatric pneumonia detecti
 The core idea: it's not enough for a model to say "pneumonia" — I wanted to know *where* it's looking, whether that changes depending on how the model is trained, and whether its confidence scores can actually be trusted. So this project combines a DenseNet-121 classifier with Grad-CAM, CBAM attention, occlusion-based counterfactuals, lung-localization scoring, an attention-consistency loss that explicitly nudges the model to look inside the lungs, and a calibration analysis (with three attempted fixes, one of which actually worked, and worked on both model variants) once I found the model's confidence wasn't trustworthy.
 
 [![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions)
+
 Python 3.11+ · MIT License
 
-[Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app)
+[Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh8.streamlit.app)
 
 ![Dashboard demo](docs/screenshots/dashboard_demo.png)
 
@@ -110,7 +111,7 @@ multimodal-xai-diagnostic/
 ## Results
 
 | Model / Experiment       | Accuracy | Precision | Recall |   F1   | AUROC  |  AUPR  |
-| -------------------------- | -------: | --------: | -----: | -----: | -----: | -----: |
+| ------------------------ | -------: | --------: | -----: | -----: | -----: | -----: |
 | Vision baseline           |  86.38%  |   0.8224  | 0.9974 | 0.9015 | 0.9604 | 0.9628 |
 | Vision + rotation/zoom    |  73.88%  |   0.7052  | 1.0000 | 0.8271 | 0.9651 | 0.9730 |
 | Vision + label smoothing  |  86.06%  |   0.8203  | 0.9949 | 0.8992 | 0.9459 | 0.9502 |
@@ -242,7 +243,7 @@ I tried three fixes, in order of how invasive they are. The first two are post-h
 Fit a single scalar T on validation logits only (Guo et al., 2017), apply it to test logits before the sigmoid.
 
 | Model | T (fit on val) | ECE before → after | Brier before → after |
-|---|---:|---|---|
+|---|---:|---:|---|
 | Vision baseline | 1.05 | 0.136 → 0.137 | 0.116 → 0.116 |
 | Fusion | 1.21 | 0.135 → 0.136 | 0.113 → 0.110 |
 
@@ -385,23 +386,19 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 
 - Tabular fusion features are synthetic — this shows the architecture can exploit a signal, not that real clinical vitals would help.
 - Dataset is modest compared to large-scale medical imaging benchmarks.
-- Several comparisons use only 3 seeds — reported p-values are exploratory, not confirmatory.
+- The CBAM and attention-consistency vision-only comparisons are now at 5 seeds; the weight sweep and the fusion-model CBAM comparison are still at 3 seeds, so those p-values remain exploratory rather than confirmatory.
 - Lung-energy fraction tells you attention is inside the lung, not that it's on the actual pathological region.
 - Grad-CAM is an interpretation method, not a causal explanation. Same caveat for the occlusion counterfactuals — sensitivity isn't causality.
-- Both models are meaningfully overconfident by default (ECE ~0.135); label smoothing improved this on both (ECE ~0.10–0.11) with no statistically confirmed cost to ranking — but only one smoothing value (0.1) has been tried.
+- Both models are meaningfully overconfident by default (ECE ~0.135); label smoothing improved this on both (ECE ~0.10–0.11) with no statistically confirmed cost to ranking. A smoothing-value sweep (0.05/0.1/0.2) was run on vision, but only at a single seed per value — see the sweep result below.
 - This is a research/portfolio prototype. It has not been clinically validated and isn't a diagnostic device.
 
 ## What I'd do differently / next
 
-- More seeds where compute allows — 3 is thin for the statistical claims I'd ideally want to make.
-- Label smoothing helped both vision and fusion at one value (0.1) — a smoothing sweep (like the attention-consistency weight sweep) to find whether a different value trades off differently is the natural remaining follow-up.
+- The weight sweep and the fusion-model CBAM comparison are still at 3 seeds — the CBAM/attention-consistency 5-seed extension above showed this matters, so the same treatment would strengthen both.
+- The smoothing-value sweep (0.05/0.1/0.2) showed calibration improves at every value but isn't clean or monotonic at a single seed - multiple seeds per value would be needed to say anything definitive about which value is actually best.
 - Real clinical/EHR metadata instead of synthetic, if I ever get access to it.
 - External validation on a different hospital/dataset.
 - Pathology-level localization annotations instead of just "inside the lung."
-- The smoothing-value sweep (0.05/0.1/0.2) showed calibration improves at every value but isn't clean or monotonic at a single seed - multiple seeds per value would be needed to say anything definitive about which value is actually best.
-- CBAM's vision-only comparison went from 3 to 5 seeds and the apparent effect shrank in both AUROC and localization - a real demonstration of why 3 seeds was too few. The attention-consistency and fusion-CBAM comparisons are still at 3 seeds and would likely benefit from the same treatment.
-- Recover a proper 5-seed AUROC estimate for attention-consistency by rerunning seeds 123 and 2024 with the now-fixed per-seed checkpoint saving, so the AUROC cost has the same rigor as the localization result.
-- Investigate the seed-2024 non-determinism finding - pin cuDNN to deterministic mode (`torch.use_deterministic_algorithms`) and check whether DataLoader workers are properly seeded, to make "same seed" actually mean "same result" in this codebase.
 
 ## Citation
 
