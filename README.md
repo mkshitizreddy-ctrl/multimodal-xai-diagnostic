@@ -216,6 +216,10 @@ Better localization, worse AUROC, diminishing returns on localization as the wei
 
 One earlier run at weight 0.03 gave AUROC 0.8933 with a suspicious 1.0000 validation score — didn't fit the sweep trend, so I flagged it as an unreplicated outlier rather than cherry-picking it into the results. In hindsight, given the seed-2024 non-determinism finding above, a perfect validation score alone isn't necessarily suspicious in this codebase — several of the 5-seed runs above also touched 1.0000 val AUROC without issue. What made weight=0.03 suspicious was specifically that its *test* AUROC didn't fit the surrounding trend, not the validation score by itself.
 
+## A note on reproducibility
+
+While rerunning seeds 123/2024 for the attention-consistency analysis above, I found that `torch.manual_seed()` alone didn't make training runs reproducible in this codebase — a same-seed rerun of the vision baseline gave different results (see seed 2024's original 0.537 vs. rerun 0.642 localization values above). Root cause: training augmentation (`RandomHorizontalFlip`, `RandomRotation`) draws from Python's built-in `random` module internally, which was never seeded in the DataLoader's worker processes; cuDNN's default convolution algorithms are also non-deterministic on GPU. `src/seeding.py` fixes both — seeds Python's `random`/NumPy/torch, pins cuDNN to deterministic mode, and reseeds each DataLoader worker. Verified with a controlled test: before the fix, two same-seed training runs diverged; after, they were bit-for-bit identical across every epoch. All three training scripts (`train.py`, `train_fusion.py`, `train_attention_consistency.py`) now use it.
+
 **Bottom line:** this is now the strongest, most rigorously-tested finding in the project — a real, statistically significant trade-off between attention localization and classification performance, confirmed across 5 seeds with matched checkpoints throughout.
 
 ## Calibration
