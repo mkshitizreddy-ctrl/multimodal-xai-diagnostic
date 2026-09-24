@@ -171,9 +171,31 @@ On the fusion model (3 seeds), CBAM's localization effect basically vanished (me
 
 Instead of just hoping CBAM attention lands on the lungs, I added a loss term (`1 − lung_energy_fraction`) that explicitly pushes attention toward precomputed lung masks.
 
-Across 3 seeds, localization improved consistently (+0.134 ± 0.055, p = 0.051 — borderline but consistent direction across all three seeds), at a cost to AUROC (−0.026 ± 0.021, p = 0.164).
+**Localization effect, now at 5 seeds (42, 123, 2024, 7, 2025):**
 
-A weight sweep makes the trade-off explicit:
+| Seed | CBAM baseline | + Attention-consistency | Diff |
+|---|---:|---:|---:|
+| 42 | 0.5110 | 0.6253 | +0.1143 |
+| 123 | 0.5717 | 0.6159 | +0.0442 |
+| 2024 | 0.4703 | 0.5370 | +0.0667 |
+| 7 | 0.3400 | 0.3610 | +0.0210 |
+| 2025 | 0.4480 | 0.5210 | +0.0730 |
+| Mean ± SD | 0.4682 ± 0.0857 | 0.5320 ± 0.1062 | **+0.0638 ± 0.0349** |
+
+Paired t-test: **p = 0.015** (was p = 0.051 at 3 seeds). Every single seed shows a positive effect, and the variance actually *tightened* with more seeds rather than widening — the opposite of what happened when I extended the CBAM comparison to 5 seeds (see above). This is the most statistically solid result in the project.
+
+**AUROC cost — a genuine gap in this data, reported honestly.** The original 3-seed AUROC comparison (seeds 42, 123, 2024) gave −0.026 ± 0.021, p = 0.164. When I went to extend this to 5 seeds, I found the checkpoints for seeds 123 and 2024 had been overwritten by later runs (no per-seed checkpoint directories were used at the time) — their individual AUROC values are unrecoverable; only that original aggregate survives. I was able to recover seed 42's checkpoint and add seeds 7 and 2025, giving a *different, non-overlapping* 3-point comparison:
+
+| Seed | CBAM baseline AUROC | + Attention-consistency | Diff |
+|---|---:|---:|---:|
+| 42 | 0.9608 | 0.9233 | −0.0375 |
+| 7 | 0.9508 | 0.9045 | −0.0463 |
+| 2025 | 0.9628 | 0.8713 | −0.0915 |
+| Mean ± SD | | | −0.0584 ± 0.0290 |
+
+Paired t-test (n=3): p = 0.073. All three points are negative and fairly consistent, and the mean cost here (−0.058) is noticeably larger than the original 3-seed estimate (−0.026) — though with only 3 points in each set and no seed overlap besides 42, I can't cleanly merge these into one 5-seed number, and n=3 is too small to trust the p-value much either way. **Honest reading: the AUROC cost is real and possibly larger than I originally reported, but I don't have a properly-powered estimate of it.** This gap exists because I didn't save a full_metrics CSV immediately after each training run at the time — every new experiment since (label smoothing, the CBAM 5-seed extension) now saves both localization and full metrics right after training specifically to avoid repeating this.
+
+A weight sweep (at 3 seeds: 42, 123, 2024) makes the general trade-off shape explicit, independent of the seed-count issue above:
 
 | Weight | Test AUROC | Localization |
 |---:|---:|---:|
@@ -185,6 +207,8 @@ A weight sweep makes the trade-off explicit:
 Better localization, worse AUROC, diminishing returns on localization as the weight climbs. I treat this as a tunable design decision, not a free win — and it's the honest way to present it.
 
 One earlier run at weight 0.03 gave AUROC 0.8933 with a suspicious 1.0000 validation score — didn't fit the sweep trend, so I flagged it as an unreplicated outlier rather than cherry-picking it into the results.
+
+**Bottom line:** the localization improvement from attention-consistency training is now a solid, statistically significant finding (p=0.015, 5 seeds, consistent direction). It comes at a real AUROC cost that I can characterize the shape of (via the weight sweep) but can't currently give a fully rigorous 5-seed point estimate for, due to a data-management gap on my part that I've since fixed going forward.
 
 ## Calibration
 
@@ -364,6 +388,7 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 - Pathology-level localization annotations instead of just "inside the lung."
 - The smoothing-value sweep (0.05/0.1/0.2) showed calibration improves at every value but isn't clean or monotonic at a single seed - multiple seeds per value would be needed to say anything definitive about which value is actually best.
 - CBAM's vision-only comparison went from 3 to 5 seeds and the apparent effect shrank in both AUROC and localization - a real demonstration of why 3 seeds was too few. The attention-consistency and fusion-CBAM comparisons are still at 3 seeds and would likely benefit from the same treatment.
+- Recover a proper 5-seed AUROC estimate for attention-consistency by rerunning seeds 123 and 2024 with the now-fixed per-seed checkpoint saving, so the AUROC cost has the same rigor as the localization result.
 
 ## Citation
 
