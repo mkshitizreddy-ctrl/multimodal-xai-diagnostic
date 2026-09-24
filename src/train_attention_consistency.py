@@ -44,6 +44,7 @@ from src.data.dataset import ChestXrayDataset
 from src.data.lung_mask_dataset import LungMaskAugmentedDataset
 from src.models.attention_consistency_loss import attention_consistency_loss
 from src.models.vision_encoder import ChestXrayVisionModel
+from src.seeding import seeded_worker_init_fn, set_seed
 from src.train import compute_macro_auroc, load_config
 
 
@@ -91,6 +92,10 @@ def build_dataloaders(
         shuffle=True,
         num_workers=train_cfg["train"]["num_workers"],
         pin_memory=pin_memory,
+        worker_init_fn=seeded_worker_init_fn,
+        generator=torch.Generator().manual_seed(
+            train_cfg["train"]["seed"]
+        ),
     )
 
     val_loader = DataLoader(
@@ -265,7 +270,7 @@ def main():
     if args.log_dir is not None:
         train_cfg["logging"]["log_dir"] = args.log_dir
 
-    torch.manual_seed(train_cfg["train"]["seed"])
+    set_seed(train_cfg["train"]["seed"])
 
     print(f"Using seed: {train_cfg['train']['seed']}")
 

@@ -22,6 +22,7 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models.fusion import ChestXrayFusionModel
+from src.seeding import set_seed
 from src.train import build_dataloaders, compute_macro_auroc, load_config
 
 
@@ -103,12 +104,45 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-config", default="configs/data.yaml")
     parser.add_argument("--train-config", default="configs/fusion.yaml")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override train_cfg['train']['seed'] without editing the config file.",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        default=None,
+        help="Override train_cfg['checkpoint']['dir'] without editing the config file. "
+        "Useful for multi-seed sweeps so each run gets its own checkpoint folder "
+        "instead of overwriting the previous seed's.",
+    )
+    parser.add_argument(
+        "--log-dir",
+        default=None,
+        help="Override train_cfg['logging']['log_dir'] without editing the config file.",
+    )
     args = parser.parse_args()
 
     data_cfg = load_config(args.data_config)
     train_cfg = load_config(args.train_config)
 
-    torch.manual_seed(train_cfg["train"]["seed"])
+    if args.seed is not None:
+        train_cfg["train"]["seed"] = args.seed
+
+    if args.checkpoint_dir is not None:
+        train_cfg["checkpoint"]["dir"] = args.checkpoint_dir
+
+    if args.log_dir is not None:
+        train_cfg["logging"]["log_dir"] = args.log_dir
+
+    # set_seed() also seeds Python's random and NumPy, and pins cuDNN to
+    # deterministic algorithms — torch.manual_seed() alone left training
+    # augmentation (RandomHorizontalFlip/RandomRotation, which draw from
+    # Python's random module inside DataLoader worker processes) and GPU
+    # convolution non-deterministic. See src/seeding.py for the full story.
+    set_seed(train_cfg["train"]["seed"])
+    print(f"Using seed: {train_cfg['train']['seed']}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")

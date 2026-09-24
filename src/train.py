@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.data.dataset import ChestXrayDataset
 from src.models.vision_encoder import ChestXrayVisionModel
+from src.seeding import seeded_worker_init_fn, set_seed
 
 
 def load_config(path: str) -> dict:
@@ -74,6 +75,10 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         shuffle=True,
         num_workers=train_cfg["train"]["num_workers"],
         pin_memory=pin_memory,
+        worker_init_fn=seeded_worker_init_fn,
+        generator=torch.Generator().manual_seed(
+            train_cfg["train"]["seed"]
+        ),
     )
 
     val_loader = DataLoader(
@@ -236,7 +241,16 @@ def main():
     if args.seed is not None:
         train_cfg["train"]["seed"] = args.seed
 
-    torch.manual_seed(train_cfg["train"]["seed"])
+    if args.use_cbam is not None:
+        train_cfg["model"]["use_cbam"] = args.use_cbam == "true"
+
+    if args.checkpoint_dir is not None:
+        train_cfg["checkpoint"]["dir"] = args.checkpoint_dir
+
+    if args.log_dir is not None:
+        train_cfg["logging"]["log_dir"] = args.log_dir
+
+    set_seed(train_cfg["train"]["seed"])
 
     print(f"Using seed: {train_cfg['train']['seed']}")
 
@@ -250,15 +264,6 @@ def main():
         data_cfg,
         train_cfg,
     )
-
-    if args.use_cbam is not None:
-        train_cfg["model"]["use_cbam"] = args.use_cbam == "true"
-
-    if args.checkpoint_dir is not None:
-        train_cfg["checkpoint"]["dir"] = args.checkpoint_dir
-
-    if args.log_dir is not None:
-        train_cfg["logging"]["log_dir"] = args.log_dir
 
     model = ChestXrayVisionModel(
         num_classes=len(classes),
