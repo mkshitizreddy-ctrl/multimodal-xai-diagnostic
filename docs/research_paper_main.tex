@@ -18,13 +18,27 @@ This work evaluates DenseNet-121 for binary pneumonia classification from
 pediatric chest X-rays, with Convolutional Block Attention Module (CBAM)
 attention and post-hoc Grad-CAM explanations. On a 624-image held-out test
 split, the vision model achieved an AUROC of 0.9604 (95\% CI: 0.9412--0.9757)
-and an AUPR of 0.9628 (95\% CI: 0.9377--0.9825). We additionally evaluate a
-late-fusion configuration using synthetic tabular attributes. Its improved
-metrics demonstrate that the implementation can exploit correlated multimodal
-signal, not clinical validity with real patient records. We report all
-thresholded and ranking metrics with bootstrap confidence intervals and use
-lung segmentation masks to quantify the fraction of Grad-CAM activation inside
-the lung field.
+and an AUPR of 0.9628 (95\% CI: 0.9377--0.9825). A late-fusion configuration
+using synthetic tabular attributes improves point estimates further; this
+demonstrates that the implementation can exploit correlated multimodal
+signal, not clinical validity with real patient records. Extending the CBAM
+comparison from three to five random seeds revealed that its apparent
+benefit on both ranking (AUROC) and Grad-CAM lung-localization was not
+statistically distinguishable from noise ($p=0.67$ and $p=0.57$
+respectively). By contrast, an attention-consistency loss that explicitly
+penalizes CBAM's spatial attention for falling outside the segmented lung
+field produced a trade-off that strengthened, not weakened, under the same
+five-seed extension: a statistically significant localization improvement
+($p=0.038$) at a statistically significant AUROC cost ($p=0.012$). We
+separately show that both the vision and fusion models are miscalibrated
+(Expected Calibration Error $\approx 0.135$, concentrated in the
+highest-confidence bin), that two standard post-hoc corrections
+(temperature scaling, isotonic regression) fail to meaningfully improve
+this, and that training with label smoothing does, without a statistically
+confirmed cost to ranking performance on either model. We report all
+thresholded and ranking metrics with bootstrap confidence intervals and
+identify and correct a training non-determinism issue discovered during
+this replication work.
 \end{abstract}
 
 \section{Introduction}
@@ -43,7 +57,11 @@ differ from this binary study~\cite{dey2026cbam,potharaju2025enhanced,
 rashid2025framework}. Grad-CAM is widely used for weakly supervised
 localization~\cite{selvaraju2017gradcam,shahi2025weakly}. DenseNet variants
 have also been evaluated directly on the Kermany chest X-ray data set
-\cite{bundea2024pneumonia,erukude2025explainable}.
+\cite{bundea2024pneumonia,erukude2025explainable}. Temperature scaling is a
+standard post-hoc confidence-calibration method for modern neural
+networks~\cite{guo2017calibration}; label smoothing, originally proposed as
+a regularizer, has separately been shown to improve model
+calibration~\cite{muller2019labelsmoothing}.
 
 \section{Methods}
 \subsection{Architecture}
@@ -60,6 +78,23 @@ masks. The lung-energy fraction is the fraction of heatmap activation contained
 inside the segmented lung region. This is a quantitative proxy for anatomical
 localization, not a clinical validation of the explanation.
 
+\subsection{Attention-Consistency Training}
+Rather than only measuring lung-energy fraction after training, an
+attention-consistency loss term, $1 - \text{(lung-energy fraction)}$, is
+added to the training objective with weight $\lambda$, explicitly penalizing
+CBAM's spatial attention map for placing activation outside the segmented
+lung field. Resulting checkpoints are architecturally identical to a
+standard CBAM-enabled vision model; only the training objective differs.
+
+\subsection{Calibration}
+Expected Calibration Error (ECE) is computed with ten equal-width confidence
+bins, alongside Brier score, on the held-out test set. Three calibration
+correction strategies are evaluated: temperature
+scaling~\cite{guo2017calibration}, isotonic regression, and training-time
+label smoothing~\cite{muller2019labelsmoothing}. The first two are post-hoc,
+fit on validation data and applied to test-set logits or probabilities; the
+third retrains the model with softened training targets.
+
 \section{Dataset and Preprocessing}
 We use the pediatric Chest X-Ray Pneumonia data set~\cite{kermany2018identifying},
 containing 5,856 images (1,583 normal and 4,273 pneumonia). The original
@@ -73,20 +108,47 @@ horizontal-flip and small-rotation augmentation.
 \input{research_paper_revisions}
 
 \section{Limitations}
-The data set is pediatric and from a single public source; performance may not
-generalize across hospitals, imaging devices, age groups, or disease
-prevalences. The fusion metadata are synthetic and deliberately label-correlated,
-so they must not be interpreted as real clinical evidence. Grad-CAM and the
-lung-energy fraction are explanatory proxies rather than ground-truth lesion
-localization measures. Three-seed comparisons are exploratory because of their
-small sample size.
+The data set is pediatric and from a single public source; performance may
+not generalize across hospitals, imaging devices, age groups, or disease
+prevalences. The fusion metadata are synthetic and deliberately
+label-correlated, so they must not be interpreted as real clinical evidence.
+Grad-CAM and the lung-energy fraction are explanatory proxies rather than
+ground-truth lesion localization measures. The CBAM and attention-consistency
+vision-only comparisons were extended to five seeds; the weight-sensitivity
+sweep and the fusion-model CBAM comparison remain at three seeds and their
+associated $p$-values are still exploratory. The calibration correction
+attempts, particularly isotonic regression, were constrained by a modest
+validation set (798 images); its degraded performance on the vision model is
+consistent with overfitting rather than a genuine limitation of the method
+itself. Label smoothing was evaluated at a single value ($\epsilon=0.1$) and
+a single seed per model; a subsequent smoothing-value sweep at one seed
+showed calibration improving non-monotonically across values, and multiple
+seeds per value would be needed to identify an optimal value with
+confidence. A training non-determinism issue -- insufficiently seeded
+data-augmentation randomness and non-deterministic GPU convolution
+algorithms -- was identified during this work and corrected; results
+reported before the fix (the original three-seed comparisons and the
+original attention-consistency estimate) may carry additional unquantified
+variance from this source.
 
 \section{Conclusion}
-DenseNet-121 with CBAM provides strong held-out ranking performance for this
-research prototype. The fusion configuration improves the reported point
-estimates, but its synthetic metadata prevent clinical conclusions. Future work
-should validate on external, patient-linked data and compare explanations with
-expert annotations.
+DenseNet-121 provides strong held-out ranking performance for this research
+prototype, and the fusion configuration improves the reported point
+estimates further, though its synthetic metadata prevent clinical
+conclusions. CBAM attention alone did not produce a statistically reliable
+effect on either ranking performance or lung localization once evaluated
+across five seeds, despite an encouraging three-seed result. An explicit
+attention-consistency loss, by contrast, produced a genuine and strengthening
+trade-off under the same extended replication: significantly improved lung
+localization at a significant, quantified cost to AUROC. Separately, both
+the vision and fusion models are shown to be meaningfully overconfident;
+among three correction strategies evaluated, only training-time label
+smoothing improved calibration without a statistically confirmed cost to
+ranking, on both models. Future work should validate on external,
+patient-linked data, compare explanations with expert annotations, and
+extend the remaining three-seed comparisons and the label-smoothing value
+sweep to five seeds for full statistical consistency with the results
+reported here.
 
 \bibliographystyle{plain}
 \bibliography{references}

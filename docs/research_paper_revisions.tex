@@ -64,6 +64,106 @@ three random seeds (42, 123, and 2024) and summarized as mean $\pm$ standard
 deviation. Any associated $t$-tests are exploratory because $n=3$ offers low
 statistical power; their p-values should not be treated as definitive evidence.
 
+\subsection{Extended Replication: CBAM and Attention-Consistency at Five Seeds}
+\label{sec:five-seed}
+
+The three-seed CBAM and attention-consistency comparisons were extended to
+five seeds (42, 123, 2024, 7, 2025) to assess whether the exploratory
+three-seed estimates were reliable. The two comparisons diverged sharply
+under this extension.
+
+For CBAM alone (vision-only, versus no attention), the AUROC difference
+shrank from $-0.0122 \pm 0.0139$ ($p=0.31$, three seeds) to
+$-0.0037 \pm 0.0179$ ($p=0.67$, five seeds), and the localization
+difference shrank from $+0.060 \pm 0.076$ ($p=0.31$) to
+$+0.029 \pm 0.107$ ($p=0.57$). One added seed (seed 7) showed a
+localization effect in the opposite direction from all other seeds. With
+five seeds, CBAM shows no statistically detectable effect on either metric.
+
+For attention-consistency training, extending to five seeds had the
+opposite effect: the localization improvement strengthened from
+$+0.134 \pm 0.055$ ($p=0.051$) to $+0.083 \pm 0.061$ ($p=0.038$), and the
+AUROC cost strengthened from $-0.026 \pm 0.021$ ($p=0.164$) to
+$-0.064 \pm 0.032$ ($p=0.012$). Both effects are significant at $\alpha=0.05$
+with five seeds. Table~\ref{tab:five-seed} reports the full per-seed values.
+
+\begin{table}[htbp]
+\centering
+\caption{Five-seed AUROC and lung-localization comparisons. CBAM columns
+compare vision-only with and without CBAM. Attention-consistency (AC)
+columns compare a CBAM baseline with attention-consistency training added
+($\lambda=0.1$).}
+\label{tab:five-seed}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Seed & CBAM AUROC $\Delta$ & CBAM Loc. $\Delta$ & AC AUROC $\Delta$ & AC Loc. $\Delta$ \\
+\midrule
+42   & $+0.0016$ & $+0.0955$ & $-0.0375$ & $+0.1143$ \\
+123  & $-0.0250$ & $+0.1499$ & $-0.0384$ & $+0.0363$ \\
+2024 & $-0.0132$ & $+0.0079$ & $-0.1058$ & $+0.1717$ \\
+7    & $+0.0228$ & $-0.1320$ & $-0.0463$ & $+0.0210$ \\
+2025 & $-0.0045$ & $+0.0240$ & $-0.0915$ & $+0.0730$ \\
+\midrule
+Mean $\pm$ SD & $-0.0037 \pm 0.0179$ & $+0.0291 \pm 0.1066$ & $-0.0639 \pm 0.0323$ & $+0.0833 \pm 0.0612$ \\
+Paired $t$-test $p$ & $0.67$ & $0.57$ & $0.012$ & $0.038$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+While rerunning seeds 123 and 2024 for this analysis, a reproducibility
+issue was identified and fixed: \texttt{torch.manual\_seed()} alone did not
+make training deterministic in this codebase, because training-time
+augmentation draws from Python's \texttt{random} module inside DataLoader
+worker processes, which was never separately seeded, and cuDNN's default
+convolution algorithms are non-deterministic on GPU. A rerun of seed 2024
+under the unfixed code gave a localization value of 0.642 versus an
+original run's 0.537 -- a gap larger than the effect size under study. A
+seeding utility fixing both issues was added and verified to produce
+bit-for-bit identical results across repeated same-seed runs.
+
+\subsection{Calibration}
+\label{sec:calibration}
+
+Ranking metrics do not establish whether predicted probabilities are
+trustworthy as confidence estimates. Expected Calibration Error (ECE,
+equal-width binning, 10 bins) and Brier score were computed on the test
+set for both the vision and fusion models. Both models are meaningfully
+overconfident: vision ECE $=0.136$ (95\% CI $[0.113, 0.162]$), fusion ECE
+$=0.135$ (95\% CI $[0.110, 0.160]$). The miscalibration is concentrated in
+the $[0.9,1.0]$ confidence bin, which contains 71\% of test images (442/624)
+at a mean stated confidence of 0.995 against an observed accuracy of 0.873.
+
+Three corrective approaches were evaluated, in increasing order of how much
+they alter the training or inference pipeline.
+
+\textbf{Temperature scaling}~\cite{guo2017calibration} fits a single scalar
+$T$ on validation logits by minimizing cross-entropy, then divides test
+logits by $T$ before the sigmoid. This left ECE essentially unchanged
+(vision: $0.136 \rightarrow 0.137$; fusion: $0.135 \rightarrow 0.136$) despite
+fusion requiring a substantially larger fitted $T$ ($1.21$ versus $1.05$),
+consistent with the miscalibration being concentrated in one confidence
+region rather than uniformly distributed.
+
+\textbf{Isotonic regression} fits a non-decreasing calibration map on
+validation data, capable of correcting different probability ranges
+independently. This degraded every metric for the vision model (ECE
+$0.136 \rightarrow 0.178$, AUROC $0.960 \rightarrow 0.932$), consistent with
+overfitting given only 798 validation examples concentrated away from the
+problem region. For fusion, ECE improved ($0.135 \rightarrow 0.113$) but
+AUROC fell by $0.041$, too large a cost to adopt.
+
+\textbf{Label smoothing}~\cite{muller2019labelsmoothing} ($\epsilon=0.1$)
+was applied during training rather than as a post-hoc correction. This
+reduced ECE on both models (vision: $0.136 \rightarrow 0.103$; fusion:
+$0.135 \rightarrow 0.112$) with a small apparent AUROC change in each case.
+A paired bootstrap (2,000 resamples, shared indices across the
+baseline/smoothed comparison) found neither AUROC difference statistically
+significant: vision $-0.0143$ (95\% CI $[-0.0309, 0.0023]$, $p=0.087$);
+fusion $+0.0028$ (95\% CI $[-0.0032, 0.0104]$, $p=0.42$). Label smoothing is
+therefore the only one of the three approaches that improved calibration on
+both models without a statistically confirmed cost to ranking performance.
+
 % Replace the existing Proposed row in Table 1 with this row. Do not use the
 % earlier 0.9608 value: the evaluated checkpoint has AUROC 0.9604.
 % \textbf{Proposed} & \textbf{DenseNet121 + CBAM} & \textbf{Binary CXR}
