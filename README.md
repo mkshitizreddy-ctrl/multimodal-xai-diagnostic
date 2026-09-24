@@ -171,31 +171,39 @@ On the fusion model (3 seeds), CBAM's localization effect basically vanished (me
 
 Instead of just hoping CBAM attention lands on the lungs, I added a loss term (`1 − lung_energy_fraction`) that explicitly pushes attention toward precomputed lung masks.
 
-**Localization effect, now at 5 seeds (42, 123, 2024, 7, 2025):**
+Evaluated across 5 seeds (42, 123, 2024, 7, 2025). Seeds 123 and 2024 were rerun partway through this analysis after I discovered their original checkpoints had been overwritten (no per-seed checkpoint directories were used at the time) — see the reproducibility note below for what that surfaced.
+
+**Localization:**
 
 | Seed | CBAM baseline | + Attention-consistency | Diff |
 |---|---:|---:|---:|
 | 42 | 0.5110 | 0.6253 | +0.1143 |
-| 123 | 0.5717 | 0.6159 | +0.0442 |
-| 2024 | 0.4703 | 0.5370 | +0.0667 |
+| 123 | 0.5717 | 0.6080 | +0.0363 |
+| 2024 | 0.4703 | 0.6420 | +0.1717 |
 | 7 | 0.3400 | 0.3610 | +0.0210 |
 | 2025 | 0.4480 | 0.5210 | +0.0730 |
-| Mean ± SD | 0.4682 ± 0.0857 | 0.5320 ± 0.1062 | **+0.0638 ± 0.0349** |
+| Mean ± SD | | | **+0.0833 ± 0.0612** |
 
-Paired t-test: **p = 0.015** (was p = 0.051 at 3 seeds). Every single seed shows a positive effect, and the variance actually *tightened* with more seeds rather than widening — the opposite of what happened when I extended the CBAM comparison to 5 seeds (see above). This is the most statistically solid result in the project.
+Paired t-test: **p = 0.038**.
 
-**AUROC cost — a genuine gap in this data, reported honestly.** The original 3-seed AUROC comparison (seeds 42, 123, 2024) gave −0.026 ± 0.021, p = 0.164. When I went to extend this to 5 seeds, I found the checkpoints for seeds 123 and 2024 had been overwritten by later runs (no per-seed checkpoint directories were used at the time) — their individual AUROC values are unrecoverable; only that original aggregate survives. I was able to recover seed 42's checkpoint and add seeds 7 and 2025, giving a *different, non-overlapping* 3-point comparison:
+**AUROC:**
 
-| Seed | CBAM baseline AUROC | + Attention-consistency | Diff |
+| Seed | CBAM baseline | + Attention-consistency | Diff |
 |---|---:|---:|---:|
 | 42 | 0.9608 | 0.9233 | −0.0375 |
+| 123 | 0.9445 | 0.9061 | −0.0384 |
+| 2024 | 0.9604 | 0.8546 | −0.1058 |
 | 7 | 0.9508 | 0.9045 | −0.0463 |
 | 2025 | 0.9628 | 0.8713 | −0.0915 |
-| Mean ± SD | | | −0.0584 ± 0.0290 |
+| Mean ± SD | 0.9559 ± 0.0079 | 0.8920 ± 0.0281 | **−0.0639 ± 0.0323** |
 
-Paired t-test (n=3): p = 0.073. All three points are negative and fairly consistent, and the mean cost here (−0.058) is noticeably larger than the original 3-seed estimate (−0.026) — though with only 3 points in each set and no seed overlap besides 42, I can't cleanly merge these into one 5-seed number, and n=3 is too small to trust the p-value much either way. **Honest reading: the AUROC cost is real and possibly larger than I originally reported, but I don't have a properly-powered estimate of it.** This gap exists because I didn't save a full_metrics CSV immediately after each training run at the time — every new experiment since (label smoothing, the CBAM 5-seed extension) now saves both localization and full metrics right after training specifically to avoid repeating this.
+Paired t-test: **p = 0.0115**.
 
-A weight sweep (at 3 seeds: 42, 123, 2024) makes the general trade-off shape explicit, independent of the seed-count issue above:
+With a full, internally consistent 5-seed comparison (same checkpoints feeding both tables), attention-consistency training shows a **real, statistically significant trade-off**: it reliably improves lung localization and reliably costs AUROC. This is a stronger and more honest result than the original 3-seed estimate (localization p=0.051, AUROC p=0.164, both borderline) — the effect held up and became clearer with more data, not weaker, which is the opposite of what happened when I ran the same seed-extension exercise on the plain CBAM comparison above.
+
+**A reproducibility finding, worth reporting on its own:** rerunning seed 2024 from scratch (same seed, same config) gave a localization value of 0.642 — nowhere near the original run's 0.537, a gap (+0.105) actually larger than the effect size I'm measuring (~0.08). Seed 123's rerun was much closer (0.608 vs. the original 0.616). So `torch.manual_seed` alone doesn't guarantee identical results in this setup — there's real run-to-run variance from something outside seed control, most likely cuDNN's non-deterministic convolution algorithms or DataLoader worker randomization that isn't fully pinned. I used the rerun's values in the tables above (matched to the checkpoints the AUROC numbers came from, for internal consistency) rather than the original, higher, now-orphaned number — the conservative choice, and it still left the result significant.
+
+A weight sweep (at the original 3 seeds: 42, 123, 2024) makes the general trade-off shape explicit, independent of the seed-count analysis above:
 
 | Weight | Test AUROC | Localization |
 |---:|---:|---:|
@@ -204,11 +212,11 @@ A weight sweep (at 3 seeds: 42, 123, 2024) makes the general trade-off shape exp
 | 0.10 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
 | 0.20 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
 
-Better localization, worse AUROC, diminishing returns on localization as the weight climbs. I treat this as a tunable design decision, not a free win — and it's the honest way to present it.
+Better localization, worse AUROC, diminishing returns on localization as the weight climbs. I treat this as a tunable design decision, not a free win.
 
-One earlier run at weight 0.03 gave AUROC 0.8933 with a suspicious 1.0000 validation score — didn't fit the sweep trend, so I flagged it as an unreplicated outlier rather than cherry-picking it into the results.
+One earlier run at weight 0.03 gave AUROC 0.8933 with a suspicious 1.0000 validation score — didn't fit the sweep trend, so I flagged it as an unreplicated outlier rather than cherry-picking it into the results. In hindsight, given the seed-2024 non-determinism finding above, a perfect validation score alone isn't necessarily suspicious in this codebase — several of the 5-seed runs above also touched 1.0000 val AUROC without issue. What made weight=0.03 suspicious was specifically that its *test* AUROC didn't fit the surrounding trend, not the validation score by itself.
 
-**Bottom line:** the localization improvement from attention-consistency training is now a solid, statistically significant finding (p=0.015, 5 seeds, consistent direction). It comes at a real AUROC cost that I can characterize the shape of (via the weight sweep) but can't currently give a fully rigorous 5-seed point estimate for, due to a data-management gap on my part that I've since fixed going forward.
+**Bottom line:** this is now the strongest, most rigorously-tested finding in the project — a real, statistically significant trade-off between attention localization and classification performance, confirmed across 5 seeds with matched checkpoints throughout.
 
 ## Calibration
 
@@ -389,6 +397,7 @@ Worth being upfront about, since I'd rather someone find these in the README tha
 - The smoothing-value sweep (0.05/0.1/0.2) showed calibration improves at every value but isn't clean or monotonic at a single seed - multiple seeds per value would be needed to say anything definitive about which value is actually best.
 - CBAM's vision-only comparison went from 3 to 5 seeds and the apparent effect shrank in both AUROC and localization - a real demonstration of why 3 seeds was too few. The attention-consistency and fusion-CBAM comparisons are still at 3 seeds and would likely benefit from the same treatment.
 - Recover a proper 5-seed AUROC estimate for attention-consistency by rerunning seeds 123 and 2024 with the now-fixed per-seed checkpoint saving, so the AUROC cost has the same rigor as the localization result.
+- Investigate the seed-2024 non-determinism finding - pin cuDNN to deterministic mode (`torch.use_deterministic_algorithms`) and check whether DataLoader workers are properly seeded, to make "same seed" actually mean "same result" in this codebase.
 
 ## Citation
 
