@@ -1,0 +1,40 @@
+# Vision-only DenseNet-121 + CBAM, identical to vision_baseline.yaml, but
+# trained/evaluated on the Potharaju-style split (data/processed_potharaju_split/)
+# instead of our patient-level split. This tests whether their reported
+# split methodology - not their model - explains their much higher reported
+# accuracy. See data/scripts/prepare_dataset_potharaju_split.py for how this
+# split was constructed and the patient-leakage check it runs.
+
+data:
+  train_csv: "data/processed_potharaju_split/train.csv"
+  val_csv: "data/processed_potharaju_split/val.csv"
+  test_csv: "data/processed_potharaju_split/test.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+
+model:
+  name: "densenet121"
+  pretrained: true
+  dropout: 0.2
+  use_cbam: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+
+checkpoint:
+  dir: "checkpoints/vision_potharaju_split"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/vision_potharaju_split"
+  log_every_n_steps: 50
