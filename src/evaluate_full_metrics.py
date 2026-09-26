@@ -1,7 +1,7 @@
 """Report thresholded and ranking metrics for vision or fusion checkpoints.
 
 Unlike :mod:`src.evaluate` and :mod:`src.evaluate_fusion`, which preserve
-the project’s cited AUROC-only result tables, this script reports Accuracy,
+the project's cited AUROC-only result tables, this script reports Accuracy,
 Precision, Recall, F1, AUROC, and AUPR.  Every reported metric has a
 percentile-bootstrap 95% confidence interval over the held-out test set.
 
@@ -204,6 +204,7 @@ def main() -> None:
     classes = checkpoint["classes"]
     is_fusion = is_fusion_checkpoint(checkpoint)
     use_cbam = checkpoint.get("use_cbam", False)
+    use_se = checkpoint.get("use_se", False)
 
     if is_fusion:
         tabular_features = checkpoint["tabular_features"]
@@ -215,7 +216,9 @@ def main() -> None:
         )
     else:
         tabular_features = data_config["tabular_features"]
-        model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False, use_cbam=use_cbam)
+        model = ChestXrayVisionModel(
+            num_classes=len(classes), pretrained=False, use_cbam=use_cbam, use_se=use_se
+        )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device).eval()
 
@@ -261,6 +264,7 @@ def main() -> None:
 
     print(f"model_type = {'fusion' if is_fusion else 'vision'}")
     print(f"use_cbam = {use_cbam}")
+    print(f"use_se = {use_se}")
     print(
         f"n = {len(y_true)} test images; threshold = {threshold:.4f}; "
         f"bootstrap samples = {args.n_bootstrap}\n"
