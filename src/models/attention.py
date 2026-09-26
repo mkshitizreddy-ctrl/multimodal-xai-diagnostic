@@ -84,3 +84,41 @@ class CBAM(nn.Module):
         max_out, _ = torch.max(x, dim=1, keepdim=True)
         pooled = torch.cat([avg_out, max_out], dim=1)
         return torch.sigmoid(self.spatial_attention.conv(pooled))
+
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation block — Hu et al., CVPR 2018,
+    https://arxiv.org/abs/1709.01507
+
+    Added to compare against CBAM, following Potharaju et al. 2025
+    ("Enhanced X-ray image classification for pneumonia detection using
+    deep learning based CBAM and SE mechanisms," Intelligence-Based
+    Medicine), which evaluates SE as a separate attention mechanism
+    alongside CBAM on this same underlying dataset. See
+    docs/potharaju_comparison.md for the full comparison writeup, including
+    a caveat: their paper describes SE only in general terms (no reduction
+    ratio, no exact layer placement), so this is a standard-formulation SE
+    block, not a byte-for-byte reconstruction of their unpublished code.
+
+    Differs from CBAM's ChannelAttention above in one specific way: squeeze
+    uses only global AVERAGE pooling (the original SE formulation), not
+    avg+max — CBAM's channel attention added max-pooling as its own
+    modification on top of the SE idea. Kept as a separate class (rather
+    than reusing ChannelAttention) so this stays a faithful, literature-
+    accurate SE block for the comparison to mean what it claims to mean.
+    """
+
+    def __init__(self, in_channels: int, reduction_ratio: int = 16):
+        super().__init__()
+        hidden = max(in_channels // reduction_ratio, 8)
+        self.squeeze = nn.AdaptiveAvgPool2d(1)
+        self.excitation = nn.Sequential(
+            nn.Linear(in_channels, hidden),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden, in_channels),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        b, c, _, _ = x.shape
+        scale = self.excitation(self.squeeze(x).view(b, c)).view(b, c, 1, 1)
+        return x * scale

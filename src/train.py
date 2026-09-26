@@ -220,6 +220,14 @@ def main():
     )
 
     parser.add_argument(
+        "--use-se",
+        type=str,
+        default=None,
+        choices=["true", "false"],
+        help="Override train_cfg['model']['use_se'] without editing the config file.",
+    )
+
+    parser.add_argument(
         "--checkpoint-dir",
         default=None,
         help="Override train_cfg['checkpoint']['dir'] without editing the config file. "
@@ -243,6 +251,9 @@ def main():
 
     if args.use_cbam is not None:
         train_cfg["model"]["use_cbam"] = args.use_cbam == "true"
+
+    if args.use_se is not None:
+        train_cfg["model"]["use_se"] = args.use_se == "true"
 
     if args.checkpoint_dir is not None:
         train_cfg["checkpoint"]["dir"] = args.checkpoint_dir
@@ -269,9 +280,10 @@ def main():
         num_classes=len(classes),
         pretrained=train_cfg["model"]["pretrained"],
         dropout=train_cfg["model"]["dropout"],
-        # .get() with a default so older configs (e.g. data_nih_legacy-era
-        # runs) without this key still load fine.
+        # .get() with a default so older configs without these keys
+        # still load fine.
         use_cbam=train_cfg["model"].get("use_cbam", False),
+        use_se=train_cfg["model"].get("use_se", False),
     ).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -383,10 +395,11 @@ def main():
 
                     # Saved so evaluate.py / dashboard / explain scripts can
                     # rebuild the exact same architecture before loading
-                    # weights (a CBAM checkpoint's state_dict has extra keys
-                    # a plain model doesn't, so this has to match or
-                    # load_state_dict fails).
+                    # weights. A CBAM checkpoint's state_dict has extra keys,
+                    # and the same applies to SE, so these architecture flags
+                    # must match when reconstructing the model.
                     "use_cbam": model.use_cbam,
+                    "use_se": model.use_se,
 
                     # Save the training label-smoothing setting so downstream
                     # evaluation/reporting code can identify the exact

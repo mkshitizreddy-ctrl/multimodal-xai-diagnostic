@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torchvision.models import DenseNet121_Weights, densenet121
 
-from src.models.attention import CBAM
+from src.models.attention import CBAM, SEBlock
 
 
 def build_densenet_backbone(pretrained: bool = True) -> tuple[nn.Module, int]:
@@ -29,6 +29,14 @@ def build_densenet_backbone(pretrained: bool = True) -> tuple[nn.Module, int]:
 class ChestXrayVisionModel(nn.Module):
     """DenseNet-121 backbone with a multi-label classification head.
 
+    Supports three configurations:
+        - Plain DenseNet-121 baseline
+        - DenseNet-121 + CBAM
+        - DenseNet-121 + SE
+
+    CBAM and SE are mutually exclusive because they are alternative
+    attention mechanisms being compared rather than stacked.
+
     Also exposes `features` and the final conv layer name, which the
     Grad-CAM module (src/explain/gradcam.py) hooks into later.
     """
@@ -39,12 +47,25 @@ class ChestXrayVisionModel(nn.Module):
         pretrained: bool = True,
         dropout: float = 0.2,
         use_cbam: bool = False,
+        use_se: bool = False,
     ):
         super().__init__()
 
+        if use_cbam and use_se:
+            raise ValueError(
+                "use_cbam and use_se are mutually exclusive in this model - they're "
+                "alternative attention mechanisms being compared (see "
+                "docs/potharaju_comparison.md), not meant to be stacked. Potharaju et "
+                "al. 2025 also evaluate them as separate models, not combined."
+            )
+
         self.features, in_features = build_densenet_backbone(pretrained)
+
         self.use_cbam = use_cbam
+        self.use_se = use_se
+
         self.cbam = CBAM(in_features) if use_cbam else nn.Identity()
+        self.se = SEBlock(in_features) if use_se else nn.Identity()
 
         self.classifier = nn.Sequential(
             nn.ReLU(inplace=True),
@@ -55,12 +76,13 @@ class ChestXrayVisionModel(nn.Module):
         )
 
         # Name of the layer Grad-CAM should hook into (last conv block).
-        # Deliberately kept as the backbone's last conv, not the CBAM output —
-        # CBAM sits between this layer and the classifier, so Grad-CAM's
-        # gradients already flow back through it. Hooking here still gives
-        # spatially meaningful activations either way, and keeps the
-        # target-layer name valid whether or not use_cbam is set (matters
-        # for comparing CBAM vs. no-CBAM checkpoints with the same script).
+        # Deliberately kept as the backbone's last conv, not the CBAM/SE output.
+        #
+        # Attention modules sit between this layer and the classifier, so
+        # Grad-CAM's gradients already flow back through the selected
+        # attention mechanism. Hooking here gives spatially meaningful
+        # activations and keeps the target-layer name valid across plain,
+        # CBAM, and SE configurations.
         self.gradcam_target_layer = "features.denseblock4.denselayer16.conv2"
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -69,27 +91,42 @@ class ChestXrayVisionModel(nn.Module):
         """
         feats = self.features(x)
         feats = self.cbam(feats)
+        feats = self.se(feats)
         return self.classifier(feats)
 
-    def forward_with_attention_map(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Like forward(), but also returns CBAM's own spatial attention
-        map (shape [B,1,7,7] for 224x224 input) — used by
-        src/train_attention_consistency.py to regularize the model's
-        attention toward the segmented lung field, not just measure it
-        after the fact like measure_lung_localization.py does. Returns
-        (logits, None) when use_cbam=False, since there's no attention map
-        to regularize in that case — callers should skip the consistency
-        loss term when this happens, not treat it as an error.
+    def forward_with_attention_map(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Like forward(), but also returns CBAM's spatial attention map.
 
-        Duplicates the channel-attention computation once (also done
-        inside self.cbam(feats) below) — a minor inefficiency, acceptable
-        for training-time overhead, kept separate from forward() so the
-        normal inference path stays untouched and exactly as fast as before.
+        For CBAM models:
+            Returns (logits, spatial_attention_map).
+
+        For plain and SE models:
+            Returns (logits, None), because SE does not provide a spatial
+            attention map suitable for the existing attention-consistency loss.
+
+        This method is primarily used by
+        src/train_attention_consistency.py.
+
+        Returns:
+            logits: Model output logits.
+            attention_map: CBAM spatial attention map, or None when CBAM
+                is not enabled.
         """
         feats = self.features(x)
-        attention_map = self.cbam.get_spatial_attention_map(feats) if self.use_cbam else None
+
+        attention_map = (
+            self.cbam.get_spatial_attention_map(feats)
+            if self.use_cbam
+            else None
+        )
+
         feats = self.cbam(feats)
+        feats = self.se(feats)
+
         logits = self.classifier(feats)
+
         return logits, attention_map
 
     def get_target_layer(self) -> nn.Module:
@@ -97,6 +134,8 @@ class ChestXrayVisionModel(nn.Module):
         for use with the Grad-CAM explainability module.
         """
         module = self
+
         for attr in self.gradcam_target_layer.split("."):
             module = getattr(module, attr)
+
         return module
