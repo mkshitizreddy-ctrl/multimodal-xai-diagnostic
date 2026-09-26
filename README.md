@@ -303,6 +303,26 @@ ECE improves at every value tried, but not monotonically — best at 0.05, not 0
 
 **Net result of the calibration thread:** the overconfidence was real and precisely diagnosed, two of three fixes failed for well-understood reasons, and the one that worked — label smoothing — generalized cleanly from vision to fusion, in both cases with no statistically confirmed cost to ranking. Fusion's result is the strongest evidence: **overconfidence baked in during training is better addressed during training than patched afterward.**
 
+## Comparison against a published paper on the same dataset
+
+While researching related work, I found Potharaju et al. 2025 ("Enhanced X-ray Image Classification for Pneumonia Detection Using Deep Learning Based CBAM and SE Mechanisms," *Intelligence-Based Medicine*) reports much higher numbers (98.6% accuracy) on what turns out to be the same underlying dataset (the Kermany pediatric chest X-ray set, confirmed from their cited Kaggle source). Their paper also has a real internal inconsistency (their own precision/recall values don't match their reported F1) and never mentions patient-level splitting, despite this dataset's pneumonia filenames encoding a patient ID with multiple images per patient.
+
+Rather than assume their architecture is simply better, I ran the two-sided comparison my professor asked for: **our method on their split, and their method on our split.**
+
+**Our method, their split:** reproducing their reported split sizes (5,216/160/480, patient-blind) revealed that 63% of their test images (304/480) share a patient with training data. Training our existing DenseNet-121+CBAM model — unchanged — on this leaky split jumped accuracy from 86.38% to 96.88% and AUROC from 0.9604 to 0.9969, with zero architecture changes. The split, not the model, does almost all the work.
+
+**Their method, our split:** their one clearly-specified architectural idea, SE (Squeeze-and-Excitation), was added as a proper alternative to CBAM (`src/models/attention.py`) and evaluated across the same 5 seeds as the CBAM comparison, on our honest patient-level split:
+
+| Model | AUROC (5-seed) | Localization (5-seed) |
+|---|---:|---:|
+| No attention | 0.9595 ± 0.0184 | 0.439 ± 0.026 |
+| CBAM | 0.9559 ± 0.0079 | 0.468 ± 0.086 |
+| SE | 0.9632 ± 0.0089 | 0.479 ± 0.049 |
+
+SE has the best mean of the three on both metrics, but neither difference is statistically significant (AUROC vs. CBAM: p=0.099; localization vs. CBAM: p=0.84) — a real, mild, unconfirmed signal, not a clean win.
+
+**Conclusion:** the gap to their reported numbers is very plausibly explained by their split methodology, not their architecture. Full writeup, including the leakage-detection methodology and reproduction commands: `docs/potharaju_comparison.md`.
+
 ## Reproducing this
 
 ```bash
