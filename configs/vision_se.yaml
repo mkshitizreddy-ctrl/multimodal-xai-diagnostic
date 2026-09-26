@@ -1,0 +1,41 @@
+# Vision-only DenseNet-121 + SE (Squeeze-and-Excitation, Hu et al. 2018),
+# identical to vision_baseline.yaml except use_se: true / use_cbam: false.
+# Added to compare against CBAM, following Potharaju et al. 2025, which
+# evaluates SE as a separate attention mechanism alongside CBAM. See
+# docs/potharaju_comparison.md for the full writeup and the important
+# caveat that their paper's SE block is not fully specified (no reduction
+# ratio, no exact layer placement) - this uses the standard SE formulation.
+
+data:
+  train_csv: "data/processed/train.csv"
+  val_csv: "data/processed/val.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+
+model:
+  name: "densenet121"
+  pretrained: true
+  dropout: 0.2
+  use_cbam: false
+  use_se: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+
+checkpoint:
+  dir: "checkpoints/vision_se"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/vision_se"
+  log_every_n_steps: 50
