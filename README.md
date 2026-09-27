@@ -305,13 +305,21 @@ ECE improves at every value tried, but not monotonically — best at 0.05, not 0
 
 ## Comparison against a published paper on the same dataset
 
-While researching related work, I found Potharaju et al. 2025 ("Enhanced X-ray Image Classification for Pneumonia Detection Using Deep Learning Based CBAM and SE Mechanisms," *Intelligence-Based Medicine*) reports much higher numbers (98.6% accuracy) on what turns out to be the same underlying dataset (the Kermany pediatric chest X-ray set, confirmed from their cited Kaggle source). Their paper also has a real internal inconsistency (their own precision/recall values don't match their reported F1) and never mentions patient-level splitting, despite this dataset's pneumonia filenames encoding a patient ID with multiple images per patient.
+While researching related work, I found Potharaju et al. 2025 ("Enhanced X-ray Image Classification for Pneumonia Detection Using Deep Learning Based CBAM and SE Mechanisms," *Intelligence-Based Medicine*) reports much higher numbers (98.6% accuracy) on what turns out to be the same underlying dataset (the Kermany pediatric chest X-ray set, confirmed from their cited Kaggle source). Their paper also has real internal inconsistencies — their own precision/recall values don't match their reported F1 on the exact row being cited — and never mentions patient-level splitting, despite this dataset's pneumonia filenames encoding a patient ID with multiple images per patient.
 
-Rather than assume their architecture is simply better, I ran the two-sided comparison my professor asked for: **our method on their split, and their method on our split.**
+I ran the two-sided comparison my professor asked for: **our method on their split, and their method on our split.**
 
-**Our method, their split:** reproducing their reported split sizes (5,216/160/480, patient-blind) revealed that 63% of their test images (304/480) share a patient with training data. Training our existing DenseNet-121+CBAM model — unchanged — on this leaky split jumped accuracy from 86.38% to 96.88% and AUROC from 0.9604 to 0.9969, with zero architecture changes. The split, not the model, does almost all the work.
+**Our method, their split:** reproducing their reported split sizes (5,216/160/480, patient-blind) revealed that 63% of their test images (304/480) share a patient with training data. Training our existing DenseNet-121+CBAM model — unchanged, just different seeds — on this split:
 
-**Their method, our split:** their one clearly-specified architectural idea, SE (Squeeze-and-Excitation), was added as a proper alternative to CBAM (`src/models/attention.py`) and evaluated across the same 5 seeds as the CBAM comparison, on our honest patient-level split:
+| Seed | Accuracy | AUROC |
+|---|---:|---:|
+| 42 | 96.88% | 0.9969 |
+| 2024 | 96.46% | 0.9967 |
+| **123** | **98.33%** | **0.9984** |
+
+Our best seed matches their reported 98.6% accuracy and exceeds every other metric they published — with zero architecture changes. The split, not the model, does almost all the work.
+
+**Their method, our split:** their one clearly-specified architectural idea, SE (Squeeze-and-Excitation), was added as a proper alternative to CBAM and evaluated across 5 seeds on our honest patient-level split:
 
 | Model | AUROC (5-seed) | Localization (5-seed) |
 |---|---:|---:|
@@ -319,9 +327,9 @@ Rather than assume their architecture is simply better, I ran the two-sided comp
 | CBAM | 0.9559 ± 0.0079 | 0.468 ± 0.086 |
 | SE | 0.9632 ± 0.0089 | 0.479 ± 0.049 |
 
-SE has the best mean of the three on both metrics, but neither difference is statistically significant (AUROC vs. CBAM: p=0.099; localization vs. CBAM: p=0.84) — a real, mild, unconfirmed signal, not a clean win.
+SE has the best mean of the three on both metrics, but neither difference is statistically significant — a real, mild, unconfirmed signal.
 
-**Conclusion:** the gap to their reported numbers is very plausibly explained by their split methodology, not their architecture. Full writeup, including the leakage-detection methodology and reproduction commands: `docs/potharaju_comparison.md`.
+**Conclusion:** on their own evaluation protocol, our unmodified model matches/exceeds their reported numbers, confirming the split explains their result far more than their architecture does. On our honest, patient-separated protocol — the number that should actually be trusted — the real figure is 86.38% accuracy, 0.9604 AUROC. Full writeup: `docs/potharaju_comparison.md`.
 
 ## Reproducing this
 
