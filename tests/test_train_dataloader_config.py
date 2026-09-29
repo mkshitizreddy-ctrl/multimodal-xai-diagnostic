@@ -53,7 +53,7 @@ def tiny_processed_dataset(tmp_path):
             "image_dir": str(image_dir),
             "image_size": 64,
         },
-        "train": {"batch_size": 2, "num_workers": 0},
+        "train": {"batch_size": 2, "num_workers": 0, "seed": 42},
     }
     return data_cfg, base_train_cfg
 

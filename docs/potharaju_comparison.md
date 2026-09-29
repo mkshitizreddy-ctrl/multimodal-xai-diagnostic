@@ -6,11 +6,11 @@ This paper reports much higher numbers than this project on what turns out to be
 
 ## Why their reported numbers were worth questioning before replicating
 
-- **Their own Table 3 is internally inconsistent, specifically on their headline result**: CNN+CBAM (98.6% accuracy) reports Precision 98.4%, Recall 98.3%, but F1 94.5% — mathematically implausible, since F1 should also be ≈98.3% given those precision/recall values. Their other rows (CNN+SE, ResNet50+CBAM) don't show this problem. The error sits exactly on the number being cited.
-- **A second inconsistency**: their abstract reports SE+CNN accuracy as 96.25%; their own conclusion section reports 96.17% for the same model.
-- **No confidence intervals, no seeds, no released code**, and only 10 training epochs with no early stopping.
-- **Their "baseline CNN" architecture is never specified** anywhere in the paper — no layer count, filter sizes, or dense layer widths. Only a generic description of what CNNs are.
-- Their reported split (5,216 train / 160 val / 480 test) totals the *entire* Kermany pool (5,856 images), and the paper never mentions patient-level grouping, despite this dataset's pneumonia filenames encoding a patient ID (`personXXX_...`) with multiple images per patient.
+* **Their own Table 3 is internally inconsistent, specifically on their headline result**: CNN+CBAM (98.6% accuracy) reports Precision 98.4%, Recall 98.3%, but F1 94.5% — mathematically implausible, since F1 should also be ≈98.3% given those precision/recall values. Their other rows (CNN+SE, ResNet50+CBAM) don't show this problem. The error sits exactly on the number being cited.
+* **A second inconsistency**: their abstract reports SE+CNN accuracy as 96.25%; their own conclusion section reports 96.17% for the same model.
+* **No confidence intervals, no seeds, no released code**, and only 10 training epochs with no early stopping.
+* **Their "baseline CNN" architecture is never specified** anywhere in the paper — no layer count, filter sizes, or dense layer widths. Only a generic description of what CNNs are.
+* Their reported split (5,216 train / 160 val / 480 test) totals the *entire* Kermany pool (5,856 images), and the paper never mentions patient-level grouping, despite this dataset's pneumonia filenames encoding a patient ID (`personXXX_...`) with multiple images per patient.
 
 ## Experiment A: our method, their split
 
@@ -20,13 +20,13 @@ This paper reports much higher numbers than this project on what turns out to be
 
 Training the project's existing DenseNet-121 + CBAM model (unchanged code) on this split instead of our patient-level split, across 3 seeds:
 
-| Seed | Accuracy | AUROC |
-|---|---:|---:|
-| 42 | 96.88% | 0.9969 |
-| 2024 | 96.46% | 0.9967 |
+| Seed    |   Accuracy |      AUROC |
+| ------- | ---------: | ---------: |
+| 42      |     96.88% |     0.9969 |
+| 2024    |     96.46% |     0.9967 |
 | **123** | **98.33%** | **0.9984** |
 
-Our best seed (123) **matches their reported accuracy (98.33% vs. 98.6%) and its AUROC, precision, recall, and F1 all exceed anything they published** — with zero architecture changes, just a different random seed evaluated under their split protocol. All three seeds land far above our honest patient-level split's 86.38% accuracy. This is strong evidence that a large part of the gap between this project's honest numbers and Potharaju et al.'s reported 98.6% is a split-leakage artifact of an undisclosed splitting methodology, not a real advantage of their architecture. This cannot be stated as certain proof of what their actual pipeline did, since they published no code — only that their paper's description is consistent with a split that leaks this badly, and that leaky split alone is sufficient to reach their reported number range with our unmodified model.
+Our best seed (123) reaches 98.33% accuracy, slightly below their reported 98.6%; the three-seed mean is 97.22%. Precision (98.03% for seed 123, 98.47% mean) is in line with their 98.4%, recall is higher, and AUROC (0.9984) is not reported by them. Their F1 of 94.5% is internally inconsistent, so it is not a meaningful comparison.
 
 ## Experiment B: their method, our split
 
@@ -36,16 +36,16 @@ Potharaju et al. evaluate SE (Squeeze-and-Excitation, Hu et al. 2018) as a separ
 
 Evaluated across 5 seeds (42, 123, 2024, 7, 2025) on our honest patient-level split:
 
-| Model | AUROC (5-seed) | Localization (5-seed) |
-|---|---:|---:|
-| No attention | 0.9595 ± 0.0184 | 0.439 ± 0.026 |
-| CBAM | 0.9559 ± 0.0079 | 0.468 ± 0.086 |
-| **SE** | **0.9632 ± 0.0089** | **0.479 ± 0.049** |
+| Model        |      AUROC (5-seed) | Localization (5-seed) |
+| ------------ | ------------------: | --------------------: |
+| No attention |     0.9595 ± 0.0184 |         0.439 ± 0.026 |
+| CBAM         |     0.9559 ± 0.0079 |         0.468 ± 0.086 |
+| **SE**       | **0.9632 ± 0.0089** |     **0.479 ± 0.049** |
 
-| Comparison | AUROC diff | AUROC p | Localization diff | Localization p |
-|---|---:|---:|---:|---:|
-| SE vs. no attention | +0.0037 | 0.72 | +0.0397 | 0.16 |
-| SE vs. CBAM | +0.0073 | 0.099 | +0.0106 | 0.84 |
+| Comparison          | AUROC diff | AUROC p | Localization diff | Localization p |
+| ------------------- | ---------: | ------: | ----------------: | -------------: |
+| SE vs. no attention |    +0.0037 |    0.72 |           +0.0397 |           0.16 |
+| SE vs. CBAM         |    +0.0073 |   0.099 |           +0.0106 |           0.84 |
 
 SE has the best mean AUROC and best mean localization of the three attention configurations tested, though neither difference reaches statistical significance at 5 seeds. Read plainly: SE shows a mild, real-looking, but not-yet-confirmed improvement — a legitimate, worthwhile addition to this project's attention-mechanism comparison, but nowhere near the scale of their reported numbers on its own.
 
@@ -53,8 +53,8 @@ SE has the best mean AUROC and best mean localization of the three attention con
 
 Two honest numbers, from the same model, on two different evaluation protocols:
 
-- **Under Potharaju et al.'s own evaluation protocol** (patient-blind split matching their description): our existing, unmodified model reaches 98.33% accuracy and 0.9984 AUROC (best of 3 seeds) — matching their reported 98.6% accuracy and exceeding every other metric they published, with no architecture changes.
-- **Under this project's honest, patient-separated evaluation protocol**: the same kind of model reaches 86.38% accuracy and 0.9604 AUROC — the number that should actually be trusted as an estimate of performance on genuinely unseen patients.
+* **Under Potharaju et al.'s own evaluation protocol** (patient-blind split matching their description): our existing, unmodified model reaches 98.33% accuracy and 0.9984 AUROC (best of 3 seeds) — landing in the same range as their reported 98.6% accuracy (3-seed mean 97.22%).
+* **Under this project's honest, patient-separated evaluation protocol**: the same kind of model reaches 86.38% accuracy and 0.9604 AUROC — the number that should actually be trusted as an estimate of performance on genuinely unseen patients.
 
 This confirms the assignment's premise: the split, not the architecture, explains almost all of the gap between this project's numbers and Potharaju et al.'s reported result. Their one clearly-specified architectural idea (SE), tested properly on this project's honest split with full statistical rigor, gives a modest, unconfirmed improvement — a real contribution to this project's attention-mechanism comparison, but not the source of their headline number. The internal inconsistencies in their own results table (specifically on the cited number), combined with the demonstrated leakage risk in their described split, mean their 98.6% should not be read as a measure of real-world generalization without their actual code and a proper patient-level evaluation.
 
