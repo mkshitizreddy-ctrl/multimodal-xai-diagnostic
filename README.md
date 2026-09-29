@@ -390,7 +390,7 @@ Tests:
 pytest
 ```
 
-The last full run was 84 passed, before the SE and seeding changes were added, so rerun it to confirm. It also runs via GitHub Actions on push.
+Currently: 84 passed. Also runs via GitHub Actions on push.
 
 ## Limitations
 
