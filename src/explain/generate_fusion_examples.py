@@ -52,7 +52,6 @@ def main():
     )
     args = parser.parse_args()
 
-    data_cfg = load_config(args.data_config)
     train_cfg = load_config(args.train_config)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

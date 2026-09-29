@@ -164,6 +164,61 @@ fusion $+0.0028$ (95\% CI $[-0.0032, 0.0104]$, $p=0.42$). Label smoothing is
 therefore the only one of the three approaches that improved calibration on
 both models without a statistically confirmed cost to ranking performance.
 
+\subsection{Attention Mechanism Comparison: SE}
+\label{sec:se}
+
+A Squeeze-and-Excitation (SE) block~\cite{hu2018se} was added to the vision model as an alternative to CBAM, following its use in Potharaju et al.~\cite{potharaju2025enhanced} (discussed below). SE performs channel attention only, via global average pooling and two fully connected layers, without CBAM's added spatial-attention stage. Evaluated across the same five seeds as the CBAM comparison in Section~\ref{sec:five-seed}:
+
+\begin{table}[htbp]
+\centering
+\caption{Test AUROC and lung-energy localization across attention configurations, five seeds.}
+\label{tab:se}
+\small
+\begin{tabular}{lcc}
+\toprule
+Configuration & AUROC (mean $\pm$ SD) & Localization (mean $\pm$ SD) \\
+\midrule
+No attention & 0.9595 $\pm$ 0.0184 & 0.439 $\pm$ 0.026 \\
+CBAM & 0.9559 $\pm$ 0.0079 & 0.468 $\pm$ 0.086 \\
+SE & 0.9632 $\pm$ 0.0089 & 0.479 $\pm$ 0.049 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SE has the best mean of the three configurations on both metrics, but neither difference from CBAM is significant (AUROC: $p=0.099$; localization: $p=0.84$), nor is either difference from no attention (AUROC: $p=0.72$; localization: $p=0.16$). This is read as a mild, real-looking, but statistically unconfirmed effect, consistent with the pattern established for CBAM alone above: single-digit-seed comparisons on this dataset do not reliably separate small effects from noise.
+
+\subsection{External Comparison: Split-Sensitivity Analysis}
+\label{sec:potharaju}
+
+Potharaju et al.~\cite{potharaju2025enhanced} report 98.6\% accuracy for a CBAM-enhanced CNN on what their cited data source confirms is the same underlying dataset used in this work. Their own results table is internally inconsistent on this exact result: reported precision (98.4\%) and recall (98.3\%) are incompatible with their reported F1 (94.5\%), which should also be approximately 98.3\%. Their abstract and conclusion also disagree with each other on a separate result (SE+CNN accuracy reported as 96.25\% and 96.17\% respectively). Their paper does not describe patient-level splitting, despite this dataset's pneumonia-class filenames encoding a shared patient identifier across multiple images, and their baseline CNN's architecture (layer count, filter sizes, dense layer width) is not specified anywhere in the paper.
+
+Reproducing their reported split sizes (5216 train / 160 validation / 480 test, stratified by class) found that 304 of 480 test images (63\%) share a patient identifier with an image in the training set. Training this work's existing DenseNet-121+CBAM model, unchanged, on this split across three seeds gave the results in Table~\ref{tab:potharaju}.
+
+\begin{table}[htbp]
+\centering
+\caption{This work's unmodified model under Potharaju et al.'s split protocol, compared with their reported result and with this work's own patient-level split.}
+\label{tab:potharaju}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Setting & Accuracy & Precision & Recall & F1 & AUROC \\
+\midrule
+Potharaju et al. (as reported) & 98.6\% & 98.4\% & 98.3\% & 94.5\%$^*$ & not reported \\
+Their split, seed 42 & 96.88\% & 98.83\% & 96.86\% & 97.84\% & 0.9969 \\
+Their split, seed 123 & 98.33\% & 98.03\% & 99.71\% & 98.87\% & 0.9984 \\
+Their split, seed 2024 & 96.46\% & 98.54\% & 96.57\% & 97.55\% & 0.9967 \\
+Their split, 3-seed mean & 97.22\% & 98.47\% & 97.71\% & 98.09\% & 0.9973 \\
+This work's own split & 86.38\% & 82.24\% & 99.74\% & 90.15\% & 0.9604 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent $^*$Internally inconsistent given the reported precision and recall; see above.
+
+Under their split protocol, this work's unmodified model reaches a mean accuracy of 97.22\% (best seed 98.33\%), in the same range as their reported 98.6\% but not exceeding it, and with no architecture changes from the model evaluated at 86.38\% on this work's own patient-level split. This does not establish what their actual pipeline did, since no code was released; it shows that a split matching their description can produce performance from an unmodified model in the range of their reported result. The large difference between the two rows of this work's own results (97.22\% vs. 86.38\%, same model) is therefore consistent with split sensitivity being a major contributor to the observed performance gap.
+
+As a second, independent test, SE (Section~\ref{sec:se}) -- Potharaju et al.'s one precisely specified architectural contribution -- was evaluated on this work's own honest split rather than on theirs, isolating the architecture question from the split question. It gave a small, non-significant improvement over CBAM (Table~\ref{tab:se}), far short of the gap to their reported number, reinforcing that the split is the larger factor.
+
 % Replace the existing Proposed row in Table 1 with this row. Do not use the
 % earlier 0.9608 value: the evaluated checkpoint has AUROC 0.9604.
 % \textbf{Proposed} & \textbf{DenseNet121 + CBAM} & \textbf{Binary CXR}

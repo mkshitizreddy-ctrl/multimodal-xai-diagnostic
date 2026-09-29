@@ -91,9 +91,11 @@ def _inject_theme_css():
             letter-spacing: 0.03em;
             margin-bottom: 1.6rem;
         }}
+
         .study-header .field .k {{
             color: {PALETTE["muted"]};
         }}
+
         .study-header .field .v {{
             color: {PALETTE["accent"]};
             font-weight: 600;
@@ -116,10 +118,12 @@ def _inject_theme_css():
             padding: 18px;
             border: 1px solid {PALETTE["hairline"]};
         }}
+
         .viewport img {{
             width: 100%;
             display: block;
         }}
+
         .viewport .corner {{
             position: absolute;
             width: 20px;
@@ -128,6 +132,7 @@ def _inject_theme_css():
             border-style: solid;
             border-width: 0;
         }}
+
         .viewport .corner.tl {{ top: 5px; left: 5px; border-top-width: 2px; border-left-width: 2px; }}
         .viewport .corner.tr {{ top: 5px; right: 5px; border-top-width: 2px; border-right-width: 2px; }}
         .viewport .corner.bl {{ bottom: 5px; left: 5px; border-bottom-width: 2px; border-left-width: 2px; }}
@@ -141,6 +146,7 @@ def _inject_theme_css():
             letter-spacing: 0.09em;
             margin-top: 8px;
         }}
+
         .viewport-caption .metric {{
             color: {PALETTE["accent"]};
         }}
@@ -200,6 +206,7 @@ def render_viewport(image, caption: str, metric: str | None = None):
         unsafe_allow_html=True,
     )
 
+
 VISION_CHECKPOINT = "checkpoints/vision_baseline/best_model.pth"
 FUSION_CHECKPOINT = "checkpoints/fusion/best_model.pth"
 DATA_CONFIG_PATH = "configs/data.yaml"
@@ -245,7 +252,10 @@ def _download_checkpoint_from_hf_hub() -> str | None:
     try:
         from huggingface_hub import hf_hub_download
 
-        return hf_hub_download(repo_id=HF_MODEL_REPO_ID, filename=HF_CHECKPOINT_FILENAME)
+        return hf_hub_download(
+            repo_id=HF_MODEL_REPO_ID,
+            filename=HF_CHECKPOINT_FILENAME,
+        )
     except Exception as e:
         st.warning(f"Could not download checkpoint from Hugging Face Hub ({HF_MODEL_REPO_ID}): {e}")
         return None
@@ -272,14 +282,23 @@ def load_vision_model():
     )
 
     if checkpoint_path is not None:
-        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        checkpoint = torch.load(
+            checkpoint_path,
+            map_location=device,
+            weights_only=False,
+        )
         model = ChestXrayVisionModel(
             num_classes=len(checkpoint["classes"]),
             pretrained=False,
             use_cbam=checkpoint.get("use_cbam", False),
         )
         model.load_state_dict(checkpoint["model_state_dict"])
-        return model.to(device).eval(), checkpoint["classes"], device, True
+        return (
+            model.to(device).eval(),
+            checkpoint["classes"],
+            device,
+            True,
+        )
 
     model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False)
     return model.to(device).eval(), classes, device, False
@@ -296,27 +315,39 @@ def preprocess_image(pil_image: Image.Image) -> torch.Tensor:
     return transform(pil_image.convert("RGB"))
 
 
-def render_probability_chart(classes: list[str], probs: np.ndarray) -> go.Figure:
+def render_probability_chart(
+    classes: list[str],
+    probs: np.ndarray,
+) -> go.Figure:
     order = np.argsort(probs)
     fig = go.Figure(
         go.Bar(
             x=probs[order],
             y=[classes[i] for i in order],
             orientation="h",
-            marker_color=[
-                PALETTE["finding"] if p >= 0.5 else PALETTE["accent"] for p in probs[order]
-            ],
+            marker_color=[PALETTE["finding"] if p >= 0.5 else PALETTE["accent"] for p in probs[order]],
         )
     )
-    fig.add_vline(x=0.5, line_dash="dash", line_color=PALETTE["muted"])
+    fig.add_vline(
+        x=0.5,
+        line_dash="dash",
+        line_color=PALETTE["muted"],
+    )
     fig.update_layout(
         xaxis_title="Predicted probability",
         height=450,
         margin=dict(l=10, r=10, t=30, b=10),
         paper_bgcolor=PALETTE["bg"],
         plot_bgcolor=PALETTE["bg"],
-        font=dict(family="IBM Plex Mono, monospace", color=PALETTE["muted"], size=12),
-        xaxis=dict(gridcolor=PALETTE["hairline"], zerolinecolor=PALETTE["hairline"]),
+        font=dict(
+            family="IBM Plex Mono, monospace",
+            color=PALETTE["muted"],
+            size=12,
+        ),
+        xaxis=dict(
+            gridcolor=PALETTE["hairline"],
+            zerolinecolor=PALETTE["hairline"],
+        ),
         yaxis=dict(gridcolor=PALETTE["hairline"]),
     )
     return fig
@@ -330,19 +361,27 @@ def main():
     checkpoint_status = "trained checkpoint" if is_trained else "random weights (demo mode)"
     cbam_status = "on" if getattr(model, "use_cbam", False) else "off"
 
+    weights_html = (
+        '<div class="field"><span class="k">WEIGHTS&nbsp;</span>'
+        f'<span class="v">{checkpoint_status}</span></div>'
+    )
+
     st.markdown(
         f"""
         <div class="study-header">
             <div class="field"><span class="k">MODEL&nbsp;</span><span class="v">densenet121</span></div>
             <div class="field"><span class="k">CBAM&nbsp;</span><span class="v">{cbam_status}</span></div>
-            <div class="field"><span class="k">WEIGHTS&nbsp;</span><span class="v">{checkpoint_status}</span></div>
+            {weights_html}
             <div class="field"><span class="k">CLASSES&nbsp;</span><span class="v">{len(classes)}</span></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown('<h1 class="app-title">Explainable Chest X-ray Diagnosis</h1>', unsafe_allow_html=True)
+    st.markdown(
+        '<h1 class="app-title">Explainable Chest X-ray Diagnosis</h1>',
+        unsafe_allow_html=True,
+    )
     st.caption(
         "Research/portfolio prototype — not validated for clinical use. "
         "See the README for dataset, architecture, and limitations."
@@ -358,7 +397,10 @@ def main():
             "see `docs/deployment.md` to configure a hosted checkpoint."
         )
 
-    uploaded_file = st.file_uploader("Upload a chest X-ray", type=["png", "jpg", "jpeg"])
+    uploaded_file = st.file_uploader(
+        "Upload a chest X-ray",
+        type=["png", "jpg", "jpeg"],
+    )
 
     if uploaded_file is None:
         st.info("Upload a PNG/JPG chest X-ray to get started.")
@@ -380,8 +422,14 @@ def main():
         probs = torch.sigmoid(logits)[0].cpu().numpy()
 
     with col2:
-        st.markdown('<div class="section-label">Predicted probabilities</div>', unsafe_allow_html=True)
-        st.plotly_chart(render_probability_chart(classes, probs), width="stretch")
+        st.markdown(
+            '<div class="section-label">Predicted probabilities</div>',
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(
+            render_probability_chart(classes, probs),
+            width="stretch",
+        )
 
     top_class_idx = int(np.argmax(probs))
     top_class_name = classes[top_class_idx]
@@ -390,28 +438,46 @@ def main():
     st.divider()
     st.markdown(
         f'<div class="section-label">Explanation for top prediction: '
-        f'<span style="color:{PALETTE["accent"]}">{top_class_name}</span> ({top_prob:.1%})</div>',
+        f'<span style="color:{PALETTE["accent"]}">{top_class_name}</span> '
+        f"({top_prob:.1%})</div>",
         unsafe_allow_html=True,
     )
 
     explain_col1, explain_col2 = st.columns(2)
 
     gradcam_explainer = ChestXrayExplainer(model, device=device)
-    overlay, _heatmap = gradcam_explainer.explain(image_tensor, top_class_idx)
+    overlay, _heatmap = gradcam_explainer.explain(
+        image_tensor,
+        top_class_idx,
+    )
 
     with explain_col1:
-        render_viewport(overlay, "grad-cam — regions driving this prediction")
+        render_viewport(
+            overlay,
+            "grad-cam — regions driving this prediction",
+        )
 
-    cf_explainer = OcclusionCounterfactualExplainer(model, gradcam_explainer, device=device)
-    result = cf_explainer.generate(image_tensor, top_class_idx, top_class_name)
+    cf_explainer = OcclusionCounterfactualExplainer(
+        model,
+        gradcam_explainer,
+        device=device,
+    )
+    result = cf_explainer.generate(
+        image_tensor,
+        top_class_idx,
+        top_class_name,
+    )
 
     with explain_col2:
         figure = make_side_by_side_figure(result)
         flip_msg = "flipped" if result.flipped else "no flip @ 0.5"
+        metric_text = (
+            f"{result.original_probability:.0%} → {result.counterfactual_probability:.0%} ({flip_msg})"
+        )
         render_viewport(
             figure,
             "counterfactual — confidence after masking top region",
-            metric=f"{result.original_probability:.0%} → {result.counterfactual_probability:.0%} ({flip_msg})",
+            metric=metric_text,
         )
 
 

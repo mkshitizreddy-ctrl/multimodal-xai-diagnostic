@@ -112,7 +112,9 @@ def main() -> None:
             train=False,
             tabular_stats=checkpoint.get("tabular_stats"),
         )
-        return DataLoader(dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0)
+        return DataLoader(
+            dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0
+        )
 
     validation_loader = make_loader(train_config["data"]["val_csv"])
     test_loader = make_loader(train_config["data"].get("test_csv", "data/processed/test.csv"))
@@ -151,7 +153,10 @@ def main() -> None:
 
     auroc_before = roc_auc_score(test_true, probability_before)
     auroc_after = roc_auc_score(test_true, probability_after)
-    print(f"\nAUROC before = {auroc_before:.4f}, after = {auroc_after:.4f} (expected to match - ranking is unaffected)")
+    print(
+        f"\nAUROC before = {auroc_before:.4f}, after = {auroc_after:.4f}"
+        "(expected to match - ranking is unaffected)"
+    )
 
     if args.output_csv:
         output_path = Path(args.output_csv)
