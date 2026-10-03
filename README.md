@@ -161,45 +161,43 @@ Rotation/zoom augmentation *raises* AUROC/AUPR but sharply lowers accuracy and F
 
 ## Attention mechanisms: CBAM vs. SE vs. none (5 seeds)
 
-Seeds **42, 123, 2024, 7, 2025**, vision model only.
+Seeds 42, 123, 2024, 7, 2025, vision model only, all trained under deterministic seeding (`src/seeding.py`) so this comparison doesn't carry the mixed-regime caveat earlier versions of this project did.
 
-The attention comparison reports **test AUROC** and **lung-energy localization**, which are the metrics evaluated for this experiment.
-
-### Test AUROC
+Test AUROC:
 
 | Seed | No attention | CBAM | SE |
 |---|---:|---:|---:|
-| 42 | 0.9592 | 0.9608 | 0.9663 |
-| 123 | 0.9695 | 0.9445 | 0.9508 |
-| 2024 | 0.9736 | 0.9604 | 0.9744 |
-| 7 | 0.9280 | 0.9508 | 0.9657 |
-| 2025 | 0.9673 | 0.9628 | 0.9588 |
-| **Mean ± SD** | **0.9595 ± 0.0184** | **0.9559 ± 0.0079** | **0.9632 ± 0.0089** |
+| 42 | 0.9629 | 0.9620 | 0.9663 |
+| 123 | 0.9675 | 0.9377 | 0.9508 |
+| 2024 | 0.9630 | 0.9562 | 0.9744 |
+| 7 | 0.9629 | 0.9619 | 0.9657 |
+| 2025 | 0.9706 | 0.9614 | 0.9588 |
+| Mean ± SD | 0.9654 ± 0.0035 | 0.9558 ± 0.0104 | 0.9632 ± 0.0089 |
 
-### Lung-energy localization
+Lung-energy localization:
 
 | Seed | No attention | CBAM | SE |
 |---|---:|---:|---:|
-| 42 | 0.4155 | 0.5110 | 0.406 |
-| 123 | 0.4217 | 0.5717 | 0.505 |
-| 2024 | 0.4624 | 0.4703 | 0.452 |
-| 7 | 0.4720 | 0.3400 | 0.505 |
-| 2025 | 0.4240 | 0.4480 | 0.526 |
-| **Mean ± SD** | **0.439 ± 0.026** | **0.468 ± 0.086** | **0.479 ± 0.049** |
+| 42 | 0.406 | 0.546 | 0.406 |
+| 123 | 0.409 | 0.513 | 0.505 |
+| 2024 | 0.491 | 0.475 | 0.452 |
+| 7 | 0.418 | 0.310 | 0.505 |
+| 2025 | 0.458 | 0.424 | 0.526 |
+| Mean ± SD | 0.436 ± 0.037 | 0.454 ± 0.092 | 0.479 ± 0.049 |
 
-### Paired significance tests
+Paired t-tests (n = 5):
 
-| Comparison | AUROC difference | p | Localization difference | p |
+| Comparison | AUROC diff | p | Localization diff | p |
 |---|---:|---:|---:|---:|
-| CBAM vs. no attention | -0.0037 | 0.67 | +0.029 | 0.57 |
-| SE vs. no attention | +0.0037 | 0.72 | +0.040 | 0.16 |
-| SE vs. CBAM | +0.0073 | 0.099 | +0.011 | 0.84 |
+| CBAM vs. none | -0.0095 | 0.147 | +0.017 | 0.73 |
+| SE vs. none | -0.0022 | 0.70 | +0.042 | 0.18 |
+| SE vs. CBAM | +0.0074 | 0.117 | +0.025 | 0.68 |
 
-**CBAM's story changed with more seeds.** At 3 seeds (42, 123, 2024), the AUROC difference was **-0.0122 (p = 0.31)** and the localization difference was **+0.060 (p = 0.31)**. Adding seeds 7 and 2025 shrank both effects, and seed 7 is the only seed where CBAM localized worse than no attention. An earlier single-run result (**p = 0.0013**) turned out to be pseudo-replication: individual images had been treated as independent replicates even though the training run is the relevant unit of replication. The analysis was rerun across seeds instead.
+**CBAM shows no reliable effect on either metric.** This holds up whether you look at the original 3-seed sweep, a later 5-seed version run before the seeding fix, or this fully consistent 5-seed version: the direction and size of the effect move around across versions (even flipping sign on AUROC at times), but it's never close to significant. An even earlier single-run result (p = 0.0013) turned out to be **pseudo-replication**: treating individual images as independent replicates when the real unit of replication is the training run. No-attention's own variance also shrank sharply once seeding was consistent (AUROC SD 0.018 → 0.0035), which is itself informative: a fair amount of the apparent seed-to-seed spread in earlier versions of this comparison was coming from inconsistent seeding, not just genuine architecture variance.
 
-**SE** has the highest mean AUROC and localization of the three configurations, but none of the pairwise differences is statistically significant at five seeds. The result is therefore a mild, unconfirmed signal rather than evidence of a definitive SE advantage.
+**SE** has the best mean AUROC and best mean localization of the three, and the SE-vs-CBAM AUROC comparison (p = 0.117) is the closest to conventional significance of any attention comparison in this project, though still short of it. I read this as a real but unconfirmed signal, not a result to lean on.
 
-On the **fusion model** (3 seeds), CBAM's localization effect was **+0.0003 ± 0.085 (p = 0.995)**, showing that the localization effect did not transfer in the same way to the fusion architecture.
+On the **fusion model** (3 seeds, run before the seeding fix), CBAM's localization effect was essentially zero (+0.0003 ± 0.085, p = 0.995), so whatever CBAM does is architecture-dependent. This comparison has not been rerun under deterministic seeding.
 
 ## Attention-consistency training
 
@@ -512,7 +510,7 @@ Worth being upfront about, since I'd rather someone find these here than in the 
 - Grad-CAM and the lung-energy fraction are explanatory proxies. Lung-energy fraction says attention is inside the lung, not that it is on the pathology. Occlusion counterfactuals show sensitivity, not causality.
 - Localization scores are means over roughly 20–26 usable images per run, so per-seed values are noisy.
 - The attention-consistency weight sweep and fusion-CBAM comparison are still at 3 seeds, and each label-smoothing value is a single seed, so those comparisons remain exploratory.
-- The seeding fix was applied partway through the project, so SE and published-protocol split runs were trained under a different seeding regime from the older CBAM, no-attention and attention-consistency runs. The SE-vs-CBAM comparison therefore mixes pre-fix and post-fix runs.
+- CBAM, no-attention and SE are now all trained under the same deterministic seeding (5 seeds each). The attention-consistency comparison and the fusion-model CBAM comparison have not been rerun under it, so those two still mix seeding regimes or sit at fewer seeds.
 - Both models are overconfident by default (ECE about 0.135). Label smoothing improved calibration, but each smoothing value was evaluated at only one seed.
 - Threshold metrics use a fixed 0.5 cutoff. Recall is near 1.0 and precision is comparatively low, so accuracy depends materially on that threshold.
 - The published-paper comparison rests on the paper's description because its code was not released. The comparison split is reproduced from its stated sizes, the SE component uses a standard formulation, and the paper's baseline CNN could not be reconstructed from the published architecture description.
