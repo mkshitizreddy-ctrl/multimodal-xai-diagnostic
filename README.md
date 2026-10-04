@@ -203,27 +203,24 @@ On the **fusion model** (3 seeds, run before the seeding fix), CBAM's localizati
 
 Instead of hoping CBAM's attention lands on the lungs, I added a loss term (`1 − lung_energy_fraction`) that pushes its spatial attention toward precomputed lung masks (weight 0.1 unless stated).
 
-Five seeds, compared against the CBAM-only run at the same seed:
+Five seeds, all trained under deterministic seeding, compared against the matching v2 CBAM baseline at the same seed:
 
-| Seed | CBAM AUROC | + attention-consistency AUROC | AUROC diff | CBAM localization | + attention-consistency localization | Localization diff |
+| Seed | CBAM AUROC | + attn.-consistency | Diff | CBAM loc. | + attn.-consistency | Diff |
 |---|---:|---:|---:|---:|---:|---:|
-| 42 | 0.9608 | 0.9233 | -0.0375 | 0.5110 | 0.6253 | +0.1143 |
-| 123 | 0.9445 | 0.9061 | -0.0384 | 0.5717 | 0.6080 | +0.0363 |
-| 2024 | 0.9604 | 0.8546 | -0.1058 | 0.4703 | 0.6420 | +0.1717 |
-| 7 | 0.9508 | 0.9045 | -0.0463 | 0.3400 | 0.3610 | +0.0210 |
-| 2025 | 0.9628 | 0.8713 | -0.0915 | 0.4480 | 0.5210 | +0.0730 |
-| **Mean** | **0.9559** | **0.8920** | **-0.0639 ± 0.0323** | **0.468** | **0.551** | **+0.0833 ± 0.0612** |
+| 42 | 0.9620 | 0.9609 | -0.0011 | 0.546 | 0.551 | +0.005 |
+| 123 | 0.9377 | 0.9022 | -0.0355 | 0.513 | 0.485 | -0.028 |
+| 2024 | 0.9562 | 0.9111 | -0.0451 | 0.475 | 0.671 | +0.196 |
+| 7 | 0.9619 | 0.9029 | -0.0590 | 0.310 | 0.340 | +0.030 |
+| 2025 | 0.9614 | 0.9435 | -0.0179 | 0.424 | 0.534 | +0.110 |
+| Mean | 0.9558 | 0.9241 | **-0.0317 ± 0.0227** | 0.454 | 0.516 | **+0.0626 ± 0.0903** |
 
-Paired t-tests:
+Paired t-tests: AUROC **p = 0.036**, localization **p = 0.196**.
 
-- AUROC: **p = 0.012**
-- Localization: **p = 0.038**
+This is a weaker, more honest result than earlier versions of this comparison reported. The AUROC cost is confirmed and consistent in direction across all 5 seeds. The localization gain is not: seed 123 is the one seed where attention-consistency training made localization slightly *worse* (-0.028), breaking what had looked like a clean, uniform-direction effect in earlier (mixed-seeding) runs of this same comparison. With that one exception included under consistent seeding, the localization claim no longer clears p < 0.05.
 
-Every seed moves in the same direction on both metrics. This gives a reproducible quantitative trade-off between localization and ranking performance.
+I don't have a principled reason to treat seed 123 as an outlier — no red flag like the validation-score inconsistency that got an earlier weight-0.03 run excluded. It stays in, and the conclusion is downgraded accordingly: **attention-consistency training reliably costs AUROC, and probably but not confirmedly improves localization.** This is a good example of why this project reruns comparisons under consistent conditions before trusting them — the same experiment told a cleaner story under a less careful setup.
 
-### Attention-consistency weight sweep
-
-The original 3-seed sweep:
+A weight sweep (original 3-seed runs, pre-dating the seeding fix) shows the general shape of the trade-off:
 
 | Weight | Test AUROC | Localization |
 |---:|---:|---:|
@@ -232,9 +229,7 @@ The original 3-seed sweep:
 | 0.10 | 0.9292 ± 0.0124 | 0.593 ± 0.048 |
 | 0.20 | 0.9100 ± 0.0380 | 0.611 ± 0.028 |
 
-Higher attention-consistency weight produces better localization but lower AUROC, with diminishing localization gains.
-
-The sweep and the 5-seed table use different sets of runs because seeds 123 and 2024 were retrained after their original checkpoints were overwritten. Their weight-0.1 values therefore should not be mixed. One earlier run at weight 0.03 (AUROC 0.8933 with a validation AUROC of exactly 1.0) was excluded as an unreplicated outlier.
+Better localization, lower AUROC, diminishing returns as the weight rises — this sweep has not been rerun under deterministic seeding. One earlier run at weight 0.03 (AUROC 0.8933 with a validation AUROC of exactly 1.0) didn't fit the trend and was excluded as an unreplicated outlier.
 
 ## Calibration
 
@@ -510,7 +505,7 @@ Worth being upfront about, since I'd rather someone find these here than in the 
 - Grad-CAM and the lung-energy fraction are explanatory proxies. Lung-energy fraction says attention is inside the lung, not that it is on the pathology. Occlusion counterfactuals show sensitivity, not causality.
 - Localization scores are means over roughly 20–26 usable images per run, so per-seed values are noisy.
 - The attention-consistency weight sweep and fusion-CBAM comparison are still at 3 seeds, and each label-smoothing value is a single seed, so those comparisons remain exploratory.
-- CBAM, no-attention and SE are now all trained under the same deterministic seeding (5 seeds each). The attention-consistency comparison and the fusion-model CBAM comparison have not been rerun under it, so those two still mix seeding regimes or sit at fewer seeds.
+- - CBAM, no-attention, SE and attention-consistency are now all trained under the same deterministic seeding (5 seeds each). Under this consistent regime, attention-consistency's localization claim no longer reaches significance (p = 0.196, driven by one seed breaking the previous uniform-direction pattern) — the AUROC cost does (p = 0.036). The fusion-model CBAM comparison has not been rerun under deterministic seeding and remains at 3 seeds.
 - Both models are overconfident by default (ECE about 0.135). Label smoothing improved calibration, but each smoothing value was evaluated at only one seed.
 - Threshold metrics use a fixed 0.5 cutoff. Recall is near 1.0 and precision is comparatively low, so accuracy depends materially on that threshold.
 - The published-paper comparison rests on the paper's description because its code was not released. The comparison split is reproduced from its stated sizes, the SE component uses a standard formulation, and the paper's baseline CNN could not be reconstructed from the published architecture description.
