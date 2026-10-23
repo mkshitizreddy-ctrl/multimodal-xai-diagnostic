@@ -1,0 +1,2 @@
+label_a,label_b,auroc_a,auroc_b,mean_diff,ci_low,ci_high,p_value,n
+image_only,image_plus_vitals_rho0,0.9620315581854043,0.9822539995616918,0.0202802577026674,0.010969704674577991,0.030387696370988763,0.0,624

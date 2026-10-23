@@ -1,0 +1,31 @@
+# Fusion with synthetic-vitals signal strength rho=0 (see data/scripts/make_vitals_rho_variants.py)
+checkpoint:
+  dir: checkpoints/fusion_rho0
+  monitor_metric: val_macro_auroc
+  save_best_only: true
+data:
+  image_dir: data/raw/images
+  image_size: 224
+  test_csv: data/processed_rho0/test.csv
+  train_csv: data/processed_rho0/train.csv
+  val_csv: data/processed_rho0/val.csv
+logging:
+  log_dir: logs/fusion_rho0
+  log_every_n_steps: 50
+model:
+  dropout: 0.2
+  name: densenet121_fusion
+  pretrained: true
+  tabular_embedding_dim: 64
+  use_cbam: true
+train:
+  batch_size: 32
+  early_stopping_patience: 4
+  epochs: 15
+  lr: 0.0001
+  lr_scheduler: cosine
+  num_workers: 4
+  optimizer: adamw
+  pin_memory: false
+  seed: 42
+  weight_decay: 1.0e-05

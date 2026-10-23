@@ -1,0 +1,37 @@
+# Weight-sweep point: 0.05. See vision_attention_consistency.yaml for the
+# full explanation; identical except for attention_consistency_weight and
+# separate checkpoint/log dirs.
+
+data:
+  train_csv: "data/processed/train.csv"
+  val_csv: "data/processed/val.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+
+model:
+  name: "densenet121"
+  pretrained: true
+  dropout: 0.2
+  use_cbam: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+  attention_consistency_weight: 0.05
+
+checkpoint:
+  dir: "checkpoints/vision_ac_weight005_v2_seed42"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/vision_ac_weight005_v2_seed42"
+  log_every_n_steps: 5

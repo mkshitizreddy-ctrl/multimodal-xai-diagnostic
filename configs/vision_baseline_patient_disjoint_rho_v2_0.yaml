@@ -1,0 +1,38 @@
+
+# Vision-only DenseNet-121 baseline
+# Patient-disjoint split, rho = 0 (synthetic vitals have no intended class-dependent mean shift)
+
+data:
+  train_csv: "data/processed_patient_disjoint_rho_v2_0/train.csv"
+  val_csv: "data/processed_patient_disjoint_rho_v2_0/val.csv"
+  test_csv: "data/processed_patient_disjoint_rho_v2_0/test.csv"
+  image_dir: "data/raw/images"
+  image_size: 224
+
+model:
+  name: "densenet121"
+  pretrained: true
+  dropout: 0.2
+  # Keep CBAM enabled to match the existing baseline.
+  use_cbam: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  num_workers: 4
+  pin_memory: false
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 4
+  seed: 42
+
+checkpoint:
+  dir: "checkpoints/vision_baseline_patient_disjoint_rho_v2_0"
+  save_best_only: true
+  monitor_metric: "val_macro_auroc"
+
+logging:
+  log_dir: "logs/vision_baseline_patient_disjoint_rho_v2_0"
+  log_every_n_steps: 50
