@@ -20,7 +20,10 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.data.dataset import ChestXrayDataset
-from src.explain.counterfactual import OcclusionCounterfactualExplainer, make_side_by_side_figure
+from src.explain.counterfactual import (
+    OcclusionCounterfactualExplainer,
+    make_side_by_side_figure,
+)
 from src.explain.gradcam import ChestXrayExplainer
 from src.models.vision_encoder import ChestXrayVisionModel
 
@@ -43,11 +46,15 @@ def select_example_indices(
         predictions (e.g. 0.999) rarely flip under occlusion regardless of
         method quality; borderline cases are where masking the
         highest-activation region is most likely to demonstrably change the
-        decision, making for a much more informative demo figure.
+        decision, making for a more informative demo figure.
     """
     if strategy == "random":
         rng = np.random.default_rng(seed)
-        indices = rng.choice(len(test_ds), size=min(num_examples, len(test_ds)), replace=False)
+        indices = rng.choice(
+            len(test_ds),
+            size=min(num_examples, len(test_ds)),
+            replace=False,
+        )
         return indices.tolist()
 
     if strategy == "borderline":
@@ -72,6 +79,12 @@ def main():
     parser.add_argument("--num-examples", type=int, default=6)
     parser.add_argument("--threshold", type=float, default=0.6)
     parser.add_argument(
+        "--dilate-px",
+        type=int,
+        default=5,
+        help="Mask dilation kernel size in pixels; use 0 to disable dilation.",
+    )
+    parser.add_argument(
         "--strategy",
         choices=["random", "borderline"],
         default="random",
@@ -88,21 +101,38 @@ def main():
     )
     args = parser.parse_args()
 
+    if not 0.0 <= args.threshold <= 1.0:
+        parser.error("--threshold must be between 0 and 1.")
+    if args.dilate_px < 0:
+        parser.error("--dilate-px must be zero or greater.")
+    if args.num_examples < 1:
+        parser.error("--num-examples must be at least 1.")
+
     data_cfg = load_config(args.data_config)
     train_cfg = load_config(args.train_config)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
+    checkpoint = torch.load(
+        args.checkpoint,
+        map_location=device,
+        weights_only=False,
+    )
     classes = checkpoint["classes"]
 
     model = ChestXrayVisionModel(
-        num_classes=len(classes), pretrained=False, use_cbam=checkpoint.get("use_cbam", False)
+        num_classes=len(classes),
+        pretrained=False,
+        use_cbam=checkpoint.get("use_cbam", False),
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device).eval()
 
     gradcam_explainer = ChestXrayExplainer(model, device=str(device))
-    cf_explainer = OcclusionCounterfactualExplainer(model, gradcam_explainer, device=str(device))
+    cf_explainer = OcclusionCounterfactualExplainer(
+        model,
+        gradcam_explainer,
+        device=str(device),
+    )
 
     test_ds = ChestXrayDataset(
         csv_path=train_cfg["data"].get("test_csv", "data/processed/test.csv"),
@@ -116,7 +146,13 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    indices = select_example_indices(model, test_ds, device, args.num_examples, args.strategy)
+    indices = select_example_indices(
+        model,
+        test_ds,
+        device,
+        args.num_examples,
+        args.strategy,
+    )
 
     flip_count = 0
     for i in indices:
@@ -131,23 +167,31 @@ def main():
             class_idx=top_class_idx,
             class_name=classes[top_class_idx],
             threshold=args.threshold,
+            dilate_px=args.dilate_px,
             restrict_to_lungs=args.restrict_to_lungs,
         )
 
         figure = make_side_by_side_figure(result)
         filename = f"example_{i}_{result.class_name}.png"
-        cv2.imwrite(str(output_dir / filename), cv2.cvtColor(figure, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(
+            str(output_dir / filename),
+            cv2.cvtColor(figure, cv2.COLOR_RGB2BGR),
+        )
 
         flip_status = "FLIPPED" if result.flipped else "no flip"
         print(
             f"Saved {filename} | {result.class_name}: "
-            f"{result.original_probability:.3f} -> {result.counterfactual_probability:.3f} "
+            f"{result.original_probability:.3f} -> "
+            f"{result.counterfactual_probability:.3f} "
             f"({flip_status})"
         )
         if result.flipped:
             flip_count += 1
 
-    print(f"\n{flip_count}/{len(indices)} examples flipped the prediction after occlusion.")
+    print(
+        f"\n{flip_count}/{len(indices)} examples flipped "
+        "the prediction after occlusion."
+    )
     print(f"Figures saved to {output_dir}/")
 
 

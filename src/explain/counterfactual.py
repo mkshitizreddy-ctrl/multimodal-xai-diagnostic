@@ -84,6 +84,7 @@ class OcclusionCounterfactualExplainer:
         class_idx: int,
         class_name: str,
         threshold: float = 0.6,
+        dilate_px: int = 5,
         restrict_to_lungs: bool = False,
     ) -> CounterfactualResult:
         # 1. Get the original prediction + Grad-CAM heatmap for this class
@@ -94,7 +95,11 @@ class OcclusionCounterfactualExplainer:
         _, heatmap = self.explainer.explain(image_tensor, class_idx, restrict_to_lungs=restrict_to_lungs)
 
         # 2. Build an inpainting mask from the highest-activation region
-        mask = heatmap_to_mask(heatmap, threshold=threshold)
+        mask = heatmap_to_mask(
+            heatmap,
+            threshold=threshold,
+            dilate_px=dilate_px,
+        )
 
         # 3. Inpaint that region out of the image
         rgb_img = rgb_float_to_uint8(denormalize_to_rgb(image_tensor))

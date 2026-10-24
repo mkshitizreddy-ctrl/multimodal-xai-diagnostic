@@ -1,0 +1,2 @@
+label_a,label_b,n,auroc_a,auroc_b,observed_diff,delong_z,delong_p_value,delong_se_diff,ci_low,ci_high,bootstrap_mean_diff,n_bootstrap,bootstrap_seed
+image_only,image_plus_synthetic_vitals_rho0.5,1165,0.9977822009512307,0.9998248125121139,0.002042611560883145,3.245893162755211,0.0011708276962130372,0.000629291063649586,0.0009169387663819861,0.003425474497174566,0.0020538831984016933,2000,42
