@@ -6,7 +6,7 @@ A research project exploring pediatric pneumonia classification from chest X-ray
 
 [![Tests](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions/workflows/tests.yml/badge.svg)](https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic/actions)
 
-**Python 3.11+ · MIT License · [Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcv2.streamlit.app)**
+**Python 3.11+ · MIT License · [Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app/)**
 
 ---
 
