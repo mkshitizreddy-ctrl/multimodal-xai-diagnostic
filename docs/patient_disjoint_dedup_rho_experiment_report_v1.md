@@ -56,9 +56,9 @@ These results verify the numerical mechanism behind the zero maps across the ful
 
 ### Investigation of zero-valued heatmaps
 
-The raw weighted Grad-CAM maps were inspected for six sampled zero-map cases. All six maps were entirely negative before the standard ReLU operation, which clips negative values to zero. This provides evidence for the mechanism in the inspected examples; the raw-map mechanism was not individually verified for every zero-map case.
+The raw weighted Grad-CAM maps were subsequently examined across all 1,165 test images before the standard ReLU operation. All 268 zero-valued heatmaps corresponded to raw maps whose values were entirely negative and were therefore clipped to zero. None of the 897 nonzero heatmaps came from an entirely negative raw map. The raw-map results matched the original diagnostic by test index and image filename, with no label mismatches or changes in predicted probabilities.
 
-The diagnostic results were repeatable in the inspected runs. Zero-valued heatmaps remain a limitation because they do not provide useful spatial localization for those images.
+These findings confirm the numerical mechanism behind the zero-valued heatmaps across the full test set. However, zero-valued maps provide no useful spatial localization, and this analysis does not establish the clinical validity of the remaining explanations or show that images with zero-valued maps have no influence on the model.
 
 ### Lung localization
 
