@@ -33,9 +33,29 @@ The image-only AUROC remained 0.997782 across all five conditions, while fusion 
 
 Because Temperature and SpO2 were synthetic and deliberately class-dependent, these findings demonstrate the effect of injected label-related information under this experimental setup. They do not establish that real clinical measurements improve pneumonia diagnosis.
 
+## Grad-CAM Faithfulness Evaluation
+
+A patch-deletion experiment was conducted on all 1,165 images in the patient-disjoint, deduplicated test set to assess whether regions ranked highly by Grad-CAM were more influential on the model's Pneumonia logit than randomly selected image patches. The image was divided into a \(16 \times 16\) grid, and patches were ranked by their mean Grad-CAM activation. The highest-ranked patches were replaced with zero-valued pixels in the normalized image tensor at requested deletion fractions of 5%, 10%, 20%, 30%, and 40%. Under the image normalization used in this project, zero-valued normalized pixels correspond to mid-gray in the original image space.
+
+For comparison, ten random patch masks were sampled per image and deletion fraction, with the same number of patches deleted as in the Grad-CAM intervention. The primary outcome was the difference between the mean Pneumonia-logit decrease under Grad-CAM-guided deletion and the mean decrease under random deletion. Paired per-image bootstrap confidence intervals were estimated using 2,000 replicates.
+
+| Requested deletion fraction | Images with nonzero Grad-CAM maps | Mean logit-drop difference (Grad-CAM − random) | Paired bootstrap 95% CI |
+|---:|---:|---:|---:|
+| 5% | 969 | 0.6444 | [0.5732, 0.7171] |
+| 10% | 969 | 0.7265 | [0.6544, 0.8075] |
+| 20% | 969 | 0.7199 | [0.6343, 0.8068] |
+| 30% | 969 | 0.7388 | [0.6547, 0.8248] |
+| 40% | 969 | 0.6574 | [0.5709, 0.7443] |
+
+Across all five deletion fractions, the mean paired difference was positive and each bootstrap confidence interval excluded zero. This indicates that, among images with nonzero Grad-CAM maps, deleting the highest-ranked patches produced a larger average decrease in the Pneumonia logit than deleting the same number of randomly selected patches.
+
+The class-specific analysis showed positive mean paired differences at every deletion fraction for both classes. However, the valid-map sample was imbalanced: all 849 Pneumonia images had nonzero maps, compared with only 120 of 316 Normal images. The remaining 196 Normal images had zero Grad-CAM maps and were excluded from the primary Grad-CAM-versus-random comparison. In the valid-map Normal subgroup, mean logit drops became negative at higher deletion fractions, indicating that the intervention could increase rather than decrease the Pneumonia logit on average. These findings warrant caution when interpreting pooled results.
+
+This experiment evaluates model sensitivity to a specific image-deletion intervention; it does not establish clinical explanation correctness, causal relevance, or reliable localization of pneumonia. The random baseline used uniformly sampled grid patches rather than matched contiguous regions, and patch replacement may introduce artifacts. The results should therefore be interpreted as evidence that Grad-CAM-ranked patches were more influential than this random-patch baseline under the tested intervention, not as proof of clinical faithfulness.
+
 ## Limitations
 
-Temperature and SpO2 are synthetic, with deliberately controlled class-dependent signal. These results demonstrate sensitivity to injected label-related information; they do not establish that real clinical measurements improve pneumonia diagnosis. The same test set was used across all five comparisons, so the comparisons should not be interpreted as independent replications. Holm–Bonferroni correction was applied to the DeLong p-values; the paired-bootstrap confidence intervals remain unadjusted for multiple comparisons. Normal-patient identity remains unverified. AUROC is near ceiling, so the absolute differences are small.
+Temperature and SpO2 are synthetic, with deliberately controlled class-dependent signal. These results demonstrate sensitivity to injected label-related information; they do not establish that real clinical measurements improve pneumonia diagnosis. The same test set was used across all five comparisons, so the comparisons should not be interpreted as independent replications. Holm–Bonferroni correction was applied to the DeLong p-values; the paired-bootstrap confidence intervals remain unadjusted for multiple comparisons. Normal-patient identity remains unverified. AUROC is near ceiling, so the absolute differences are small. The Grad-CAM deletion experiment measures sensitivity to a specific patch-replacement intervention and does not establish clinical explanation validity; its Normal-class comparison was limited to the subset with nonzero Grad-CAM maps.
 
 ## Reproducibility
 
