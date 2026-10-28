@@ -27,9 +27,12 @@ benefit on both ranking (AUROC) and Grad-CAM lung-localization was not
 statistically distinguishable from noise ($p=0.67$ and $p=0.57$
 respectively). By contrast, an attention-consistency loss that explicitly
 penalizes CBAM's spatial attention for falling outside the segmented lung
-field produced a trade-off that strengthened, not weakened, under the same
-five-seed extension: a statistically significant localization improvement
-($p=0.038$) at a statistically significant AUROC cost ($p=0.012$). We
+field showed a significant localization improvement ($p=0.038$) and a
+significant AUROC cost ($p=0.012$) in a five-seed comparison with partly
+inconsistent seeding. After a training non-determinism issue was fixed and
+all five seeds were rerun under deterministic seeding, the AUROC cost
+persisted (mean $\Delta\approx-0.032$, $p\approx0.04$) but the localization
+gain was no longer statistically significant ($+0.063$, $p=0.196$). We
 separately show that both the vision and fusion models are miscalibrated
 (Expected Calibration Error $\approx 0.135$, concentrated in the
 highest-confidence bin), that two standard post-hoc corrections
@@ -129,7 +132,12 @@ data-augmentation randomness and non-deterministic GPU convolution
 algorithms -- was identified during this work and corrected; results
 reported before the fix (the original three-seed comparisons and the
 original attention-consistency estimate) may carry additional unquantified
-variance from this source.
+variance from this source. The CBAM, SE, and attention-consistency comparisons
+were subsequently rerun at five seeds under deterministic seeding
+(Section~\ref{sec:deterministic-rerun}); those results supersede the earlier
+mixed-seeding estimates, which are retained only for transparency. Even so,
+$n=5$ seeds gives limited statistical power, and no multiplicity adjustment
+was applied to these paired $t$-tests.
 
 \section{Conclusion}
 DenseNet-121 provides strong held-out ranking performance for this research
@@ -138,9 +146,10 @@ estimates further, though its synthetic metadata prevent clinical
 conclusions. CBAM attention alone did not produce a statistically reliable
 effect on either ranking performance or lung localization once evaluated
 across five seeds, despite an encouraging three-seed result. An explicit
-attention-consistency loss, by contrast, produced a genuine and strengthening
-trade-off under the same extended replication: significantly improved lung
-localization at a significant, quantified cost to AUROC. Separately, both
+attention-consistency loss, by contrast, produced a reproducible AUROC cost
+under deterministic seeding, while its localization gain---significant under
+the original mixed seeding---was not statistically significant after the
+rerun. Separately, both
 the vision and fusion models are shown to be meaningfully overconfident;
 among three correction strategies evaluated, only training-time label
 smoothing improved calibration without a statistically confirmed cost to

@@ -84,12 +84,15 @@ For attention-consistency training, extending to five seeds had the
 opposite effect: the localization improvement strengthened from
 $+0.134 \pm 0.055$ ($p=0.051$) to $+0.083 \pm 0.061$ ($p=0.038$), and the
 AUROC cost strengthened from $-0.026 \pm 0.021$ ($p=0.164$) to
-$-0.064 \pm 0.032$ ($p=0.012$). Both effects are significant at $\alpha=0.05$
-with five seeds. Table~\ref{tab:five-seed} reports the full per-seed values.
+$-0.064 \pm 0.032$ ($p=0.012$). Both effects were significant at $\alpha=0.05$
+in these original runs, which used partly inconsistent seeding; the
+deterministic rerun in Section~\ref{sec:deterministic-rerun} supersedes them.
+Table~\ref{tab:five-seed} reports the full per-seed values.
 
 \begin{table}[htbp]
 \centering
-\caption{Five-seed AUROC and lung-localization comparisons. CBAM columns
+\caption{Five-seed AUROC and lung-localization comparisons (original runs with
+partly inconsistent seeding; superseded by Table~\ref{tab:deterministic}). CBAM columns
 compare vision-only with and without CBAM. Attention-consistency (AC)
 columns compare a CBAM baseline with attention-consistency training added
 ($\lambda=0.1$).}
@@ -121,6 +124,49 @@ under the unfixed code gave a localization value of 0.642 versus an
 original run's 0.537 -- a gap larger than the effect size under study. A
 seeding utility fixing both issues was added and verified to produce
 bit-for-bit identical results across repeated same-seed runs.
+
+\subsection{Deterministic-Seeding Rerun}
+\label{sec:deterministic-rerun}
+
+After the seeding fix, the vision-only CBAM, no-attention, and
+attention-consistency models were rerun for the same five seeds under
+deterministic seeding. Table~\ref{tab:deterministic} reports paired
+differences computed from the per-seed test-set AUROC and mean lung-energy
+fraction. The CBAM columns compare CBAM with no attention; the attention-consistency
+(AC) columns compare AC training ($\lambda=0.1$) with the CBAM baseline.
+
+\begin{table}[htbp]
+\centering
+\caption{Deterministic-seeding rerun, five seeds. $\Delta$ is the paired
+difference (CBAM minus no attention; AC minus CBAM). $p$-values are paired
+$t$-tests with $n=5$ and no multiplicity adjustment.}
+\label{tab:deterministic}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Seed & CBAM AUROC $\Delta$ & CBAM Loc. $\Delta$ & AC AUROC $\Delta$ & AC Loc. $\Delta$ \\
+\midrule
+42   & $-0.0009$ & $+0.1402$ & $-0.0011$ & $+0.0049$ \\
+123  & $-0.0298$ & $+0.1043$ & $-0.0355$ & $-0.0282$ \\
+2024 & $-0.0068$ & $-0.0160$ & $-0.0451$ & $+0.1957$ \\
+7    & $-0.0010$ & $-0.1077$ & $-0.0591$ & $+0.0304$ \\
+2025 & $-0.0092$ & $-0.0336$ & $-0.0179$ & $+0.1097$ \\
+\midrule
+Mean $\pm$ SD & $-0.0095 \pm 0.0119$ & $+0.0174 \pm 0.1025$ & $-0.0318 \pm 0.0227$ & $+0.0625 \pm 0.0902$ \\
+Paired $t$-test $p$ & $0.147$ & $0.723$ & $0.035$ & $0.196$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under consistent seeding, CBAM again showed no statistically detectable effect
+on AUROC ($p=0.147$) or localization ($p=0.723$). For attention-consistency
+training, the AUROC cost persisted (mean $-0.0318$, $p=0.035$), but the
+localization gain shrank to $+0.0625$ ($p=0.196$), and seed 123 showed a
+negative localization difference, ending the all-positive pattern seen in the
+original runs. The localization improvement attributed to attention-consistency
+training in Section~\ref{sec:five-seed} is therefore not confirmed, while the
+AUROC cost is. With only five seeds these tests have limited power, so
+non-significance should not be read as evidence of no effect.
 
 \subsection{Calibration}
 \label{sec:calibration}
