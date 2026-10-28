@@ -53,7 +53,9 @@ def load_config(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def precompute_for_csv(csv_path: str, image_dir: str, image_size: int, classes: list, tabular_features: list) -> dict:
+def precompute_for_csv(
+    csv_path: str, image_dir: str, image_size: int, classes: list, tabular_features: list
+) -> dict:
     """Returns {image_filename: mask_array} for every row in csv_path.
     Uses train=False deterministic transform regardless of which split
     this is — see module docstring for why.

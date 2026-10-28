@@ -21,10 +21,8 @@ Usage:
     python data/scripts/prepare_dataset_potharaju_split.py
 """
 
-import shutil
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -34,7 +32,6 @@ except AttributeError:
     pass
 
 from prepare_pneumonia_dataset import (
-    RAW_IMAGES_DIR,
     RANDOM_SEED,
     collect_split,
     download_dataset,

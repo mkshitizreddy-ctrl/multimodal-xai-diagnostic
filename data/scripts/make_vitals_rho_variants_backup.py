@@ -45,7 +45,9 @@ def main():
             frames[s] = df
         cols = ["Temperature", "SpO2"]
         sc = StandardScaler().fit(frames["train"][cols])
-        clf = LogisticRegression(max_iter=1000).fit(sc.transform(frames["train"][cols]), frames["train"]["Pneumonia"])
+        clf = LogisticRegression(max_iter=1000).fit(
+            sc.transform(frames["train"][cols]), frames["train"]["Pneumonia"]
+        )
         p = clf.predict_proba(sc.transform(frames["test"][cols]))[:, 1]
         print(f"rho={rho:<5g} tabular-only test AUROC = {roc_auc_score(frames['test']['Pneumonia'], p):.4f}")
 

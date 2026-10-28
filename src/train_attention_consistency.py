@@ -34,7 +34,6 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-import yaml
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 

@@ -11,9 +11,9 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.data.dataset import ChestXrayDataset
-from src.explain.generate_counterfactual_examples import load_config
-from src.models.vision_encoder import ChestXrayVisionModel
+from src.data.dataset import ChestXrayDataset  # noqa: E402
+from src.explain.generate_counterfactual_examples import load_config  # noqa: E402
+from src.models.vision_encoder import ChestXrayVisionModel  # noqa: E402
 
 
 def main():

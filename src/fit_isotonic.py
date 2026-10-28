@@ -92,7 +92,9 @@ def main() -> None:
             train=False,
             tabular_stats=checkpoint.get("tabular_stats"),
         )
-        return DataLoader(dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0)
+        return DataLoader(
+            dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0
+        )
 
     validation_loader = make_loader(train_config["data"]["val_csv"])
     test_loader = make_loader(train_config["data"].get("test_csv", "data/processed/test.csv"))

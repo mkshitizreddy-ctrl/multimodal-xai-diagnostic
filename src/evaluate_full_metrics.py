@@ -256,7 +256,9 @@ def main() -> None:
                 model, validation_loader, device, is_fusion
             )
         if len(classes) != 1:
-            parser.error("Validation threshold calibration currently supports binary single-label models only")
+            parser.error(
+                "Validation threshold calibration currently supports binary single-label models only"
+            )
         threshold = select_validation_threshold(validation_true[:, 0], validation_probability[:, 0])
         print(f"Selected threshold = {threshold:.4f} by maximizing validation F1.")
     with torch.no_grad():

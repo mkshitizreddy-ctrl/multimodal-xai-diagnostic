@@ -7,10 +7,10 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.explain.generate_counterfactual_examples import load_config
 from src.data.dataset import ChestXrayDataset
-from src.models.vision_encoder import ChestXrayVisionModel
+from src.explain.generate_counterfactual_examples import load_config
 from src.explain.gradcam import ChestXrayExplainer
+from src.models.vision_encoder import ChestXrayVisionModel
 
 
 def main():

@@ -1,0 +1,284 @@
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index dc7ae0c..1c8f3f2 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -2,9 +2,9 @@ name: Tests
+ 
+ on:
+   push:
+-    branches: [main]
++    branches: [main, master]
+   pull_request:
+-    branches: [main]
++    branches: [main, master]
+ 
+ jobs:
+   lint:
+diff --git a/data/scripts/make_patient_disjoint_dedup_rho_configs.py b/data/scripts/make_patient_disjoint_dedup_rho_configs.py
+index a2cff4c..768ef79 100644
+--- a/data/scripts/make_patient_disjoint_dedup_rho_configs.py
++++ b/data/scripts/make_patient_disjoint_dedup_rho_configs.py
+@@ -1,5 +1,6 @@
+ 
+ from pathlib import Path
++
+ import yaml
+ 
+ RHOS = [0.0, 0.25, 0.5, 0.75, 1.0]
+diff --git a/data/scripts/make_rho_configs.py b/data/scripts/make_rho_configs.py
+index efd7294..3f85b11 100644
+--- a/data/scripts/make_rho_configs.py
++++ b/data/scripts/make_rho_configs.py
+@@ -17,6 +17,9 @@ for rho in RHOS:
+     cfg["logging"]["log_dir"] = f"logs/fusion_rho{rho:g}"
+     path = f"configs/fusion_rho{rho:g}.yaml"
+     with open(path, "w") as f:
+-        f.write(f"# Fusion with synthetic-vitals signal strength rho={rho:g} (see data/scripts/make_vitals_rho_variants.py)\n")
++        f.write(
++            f"# Fusion with synthetic-vitals signal strength rho={rho:g} "
++            "(see data/scripts/make_vitals_rho_variants.py)\n"
++        )
+         yaml.safe_dump(cfg, f, sort_keys=False)
+     print("wrote", path)
+\ No newline at end of file
+diff --git a/data/scripts/make_rho_v2_configs.py b/data/scripts/make_rho_v2_configs.py
+index 2e5cb36..abaca5f 100644
+--- a/data/scripts/make_rho_v2_configs.py
++++ b/data/scripts/make_rho_v2_configs.py
+@@ -1,5 +1,6 @@
+ 
+ from pathlib import Path
++
+ import yaml
+ 
+ RHOS = [0.0, 0.25, 0.5, 0.75, 1.0]
+diff --git a/data/scripts/make_vitals_rho_variants.py b/data/scripts/make_vitals_rho_variants.py
+index 371e743..d9735c3 100644
+--- a/data/scripts/make_vitals_rho_variants.py
++++ b/data/scripts/make_vitals_rho_variants.py
+@@ -48,7 +48,9 @@ def main():
+             frames[s] = df
+         cols = ["Temperature", "SpO2"]
+         sc = StandardScaler().fit(frames["train"][cols])
+-        clf = LogisticRegression(max_iter=1000).fit(sc.transform(frames["train"][cols]), frames["train"]["Pneumonia"])
++        clf = LogisticRegression(max_iter=1000).fit(
++            sc.transform(frames["train"][cols]), frames["train"]["Pneumonia"]
++        )
+         p = clf.predict_proba(sc.transform(frames["test"][cols]))[:, 1]
+         print(f"rho={rho:<5g} tabular-only test AUROC = {roc_auc_score(frames['test']['Pneumonia'], p):.4f}")
+ 
+diff --git a/data/scripts/make_vitals_rho_variants_backup.py b/data/scripts/make_vitals_rho_variants_backup.py
+index 297ce57..87fd019 100644
+--- a/data/scripts/make_vitals_rho_variants_backup.py
++++ b/data/scripts/make_vitals_rho_variants_backup.py
+@@ -45,7 +45,9 @@ def main():
+             frames[s] = df
+         cols = ["Temperature", "SpO2"]
+         sc = StandardScaler().fit(frames["train"][cols])
+-        clf = LogisticRegression(max_iter=1000).fit(sc.transform(frames["train"][cols]), frames["train"]["Pneumonia"])
++        clf = LogisticRegression(max_iter=1000).fit(
++            sc.transform(frames["train"][cols]), frames["train"]["Pneumonia"]
++        )
+         p = clf.predict_proba(sc.transform(frames["test"][cols]))[:, 1]
+         print(f"rho={rho:<5g} tabular-only test AUROC = {roc_auc_score(frames['test']['Pneumonia'], p):.4f}")
+ 
+diff --git a/data/scripts/precompute_lung_masks.py b/data/scripts/precompute_lung_masks.py
+index 285eb72..c6a26ce 100644
+--- a/data/scripts/precompute_lung_masks.py
++++ b/data/scripts/precompute_lung_masks.py
+@@ -53,7 +53,9 @@ def load_config(path: str) -> dict:
+         return yaml.safe_load(f)
+ 
+ 
+-def precompute_for_csv(csv_path: str, image_dir: str, image_size: int, classes: list, tabular_features: list) -> dict:
++def precompute_for_csv(
++    csv_path: str, image_dir: str, image_size: int, classes: list, tabular_features: list
++) -> dict:
+     """Returns {image_filename: mask_array} for every row in csv_path.
+     Uses train=False deterministic transform regardless of which split
+     this is — see module docstring for why.
+diff --git a/data/scripts/prepare_dataset_potharaju_split.py b/data/scripts/prepare_dataset_potharaju_split.py
+index b1167c1..dfbe0e6 100644
+--- a/data/scripts/prepare_dataset_potharaju_split.py
++++ b/data/scripts/prepare_dataset_potharaju_split.py
+@@ -21,10 +21,8 @@ Usage:
+     python data/scripts/prepare_dataset_potharaju_split.py
+ """
+ 
+-import shutil
+ from pathlib import Path
+ 
+-import numpy as np
+ import pandas as pd
+ from sklearn.model_selection import train_test_split
+ 
+@@ -34,7 +32,6 @@ except AttributeError:
+     pass
+ 
+ from prepare_pneumonia_dataset import (
+-    RAW_IMAGES_DIR,
+     RANDOM_SEED,
+     collect_split,
+     download_dataset,
+diff --git a/data/scripts/prepare_patient_disjoint_dataset.py b/data/scripts/prepare_patient_disjoint_dataset.py
+index d8b4d6e..af62cce 100644
+--- a/data/scripts/prepare_patient_disjoint_dataset.py
++++ b/data/scripts/prepare_patient_disjoint_dataset.py
+@@ -12,7 +12,6 @@ NORMAL cases cannot be guaranteed.
+ 
+ from pathlib import Path
+ 
+-import numpy as np
+ import pandas as pd
+ from sklearn.model_selection import StratifiedGroupKFold
+ 
+diff --git a/data/scripts/prepare_patient_disjoint_dedup_dataset.py b/data/scripts/prepare_patient_disjoint_dedup_dataset.py
+index d653768..c69dcde 100644
+--- a/data/scripts/prepare_patient_disjoint_dedup_dataset.py
++++ b/data/scripts/prepare_patient_disjoint_dedup_dataset.py
+@@ -1,11 +1,10 @@
+ 
+-from pathlib import Path
+ import hashlib
++from pathlib import Path
+ 
+ import pandas as pd
+ from sklearn.model_selection import StratifiedGroupKFold
+ 
+-
+ # ---------------------------------------------------------
+ # Configuration
+ # ---------------------------------------------------------
+diff --git a/data/scripts/verify_patient_disjoint_dedup.py b/data/scripts/verify_patient_disjoint_dedup.py
+index af0d970..d1c0313 100644
+--- a/data/scripts/verify_patient_disjoint_dedup.py
++++ b/data/scripts/verify_patient_disjoint_dedup.py
+@@ -1,6 +1,7 @@
+ 
+-from pathlib import Path
+ import hashlib
++from pathlib import Path
++
+ import pandas as pd
+ 
+ base = Path("data/processed_patient_disjoint_dedup_v1")
+diff --git a/src/evaluate_full_metrics.py b/src/evaluate_full_metrics.py
+index 788067a..b932e44 100644
+--- a/src/evaluate_full_metrics.py
++++ b/src/evaluate_full_metrics.py
+@@ -256,7 +256,9 @@ def main() -> None:
+                 model, validation_loader, device, is_fusion
+             )
+         if len(classes) != 1:
+-            parser.error("Validation threshold calibration currently supports binary single-label models only")
++            parser.error(
++                "Validation threshold calibration currently supports binary single-label models only"
++            )
+         threshold = select_validation_threshold(validation_true[:, 0], validation_probability[:, 0])
+         print(f"Selected threshold = {threshold:.4f} by maximizing validation F1.")
+     with torch.no_grad():
+diff --git a/src/explain/inspect_gradcam_gradients.py b/src/explain/inspect_gradcam_gradients.py
+index e4cf8fd..79bd630 100644
+--- a/src/explain/inspect_gradcam_gradients.py
++++ b/src/explain/inspect_gradcam_gradients.py
+@@ -3,12 +3,11 @@ import sys
+ from pathlib import Path
+ 
+ import torch
+-import torch.nn.functional as F
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+ 
+-from src.explain.generate_counterfactual_examples import load_config
+ from src.data.dataset import ChestXrayDataset
++from src.explain.generate_counterfactual_examples import load_config
+ from src.models.vision_encoder import ChestXrayVisionModel
+ 
+ 
+diff --git a/src/explain/inspect_gradcam_heatmaps.py b/src/explain/inspect_gradcam_heatmaps.py
+index d04799c..6489966 100644
+--- a/src/explain/inspect_gradcam_heatmaps.py
++++ b/src/explain/inspect_gradcam_heatmaps.py
+@@ -7,10 +7,10 @@ import torch
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+ 
+-from src.explain.generate_counterfactual_examples import load_config
+ from src.data.dataset import ChestXrayDataset
+-from src.models.vision_encoder import ChestXrayVisionModel
++from src.explain.generate_counterfactual_examples import load_config
+ from src.explain.gradcam import ChestXrayExplainer
++from src.models.vision_encoder import ChestXrayVisionModel
+ 
+ 
+ def main():
+diff --git a/src/explain/inspect_gradcam_raw_map.py b/src/explain/inspect_gradcam_raw_map.py
+index 884aa92..d7f55bc 100644
+--- a/src/explain/inspect_gradcam_raw_map.py
++++ b/src/explain/inspect_gradcam_raw_map.py
+@@ -7,8 +7,8 @@ import torch
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+ 
+-from src.explain.generate_counterfactual_examples import load_config
+ from src.data.dataset import ChestXrayDataset
++from src.explain.generate_counterfactual_examples import load_config
+ from src.models.vision_encoder import ChestXrayVisionModel
+ 
+ 
+diff --git a/src/explain/inspect_raw_gradcam_zero_maps.py b/src/explain/inspect_raw_gradcam_zero_maps.py
+index d5b79b2..e9098df 100644
+--- a/src/explain/inspect_raw_gradcam_zero_maps.py
++++ b/src/explain/inspect_raw_gradcam_zero_maps.py
+@@ -11,9 +11,9 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+ ROOT = Path(__file__).resolve().parents[2]
+ sys.path.insert(0, str(ROOT))
+ 
+-from src.data.dataset import ChestXrayDataset
+-from src.explain.generate_counterfactual_examples import load_config
+-from src.models.vision_encoder import ChestXrayVisionModel
++from src.data.dataset import ChestXrayDataset  # noqa: E402
++from src.explain.generate_counterfactual_examples import load_config  # noqa: E402
++from src.models.vision_encoder import ChestXrayVisionModel  # noqa: E402
+ 
+ 
+ def main():
+diff --git a/src/fit_isotonic.py b/src/fit_isotonic.py
+index 4dc07d7..4636a3b 100644
+--- a/src/fit_isotonic.py
++++ b/src/fit_isotonic.py
+@@ -92,7 +92,9 @@ def main() -> None:
+             train=False,
+             tabular_stats=checkpoint.get("tabular_stats"),
+         )
+-        return DataLoader(dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0)
++        return DataLoader(
++            dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0
++        )
+ 
+     validation_loader = make_loader(train_config["data"]["val_csv"])
+     test_loader = make_loader(train_config["data"].get("test_csv", "data/processed/test.csv"))
+diff --git a/src/train_attention_consistency.py b/src/train_attention_consistency.py
+index 8e70656..d4e2329 100644
+--- a/src/train_attention_consistency.py
++++ b/src/train_attention_consistency.py
+@@ -34,7 +34,6 @@ from pathlib import Path
+ 
+ import torch
+ import torch.nn as nn
+-import yaml
+ from torch.utils.data import DataLoader
+ from tqdm import tqdm
+ 
+diff --git a/src/verify_auroc_comparison.py b/src/verify_auroc_comparison.py
+index b04b8e3..483d8d0 100644
+--- a/src/verify_auroc_comparison.py
++++ b/src/verify_auroc_comparison.py
+@@ -16,7 +16,6 @@ import numpy as np
+ from scipy.stats import norm
+ from sklearn.metrics import roc_auc_score
+ 
+-
+ ROOT = Path(__file__).resolve().parents[1]
+ sys.path.insert(0, str(ROOT))
+ 

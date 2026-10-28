@@ -17,6 +17,9 @@ for rho in RHOS:
     cfg["logging"]["log_dir"] = f"logs/fusion_rho{rho:g}"
     path = f"configs/fusion_rho{rho:g}.yaml"
     with open(path, "w") as f:
-        f.write(f"# Fusion with synthetic-vitals signal strength rho={rho:g} (see data/scripts/make_vitals_rho_variants.py)\n")
+        f.write(
+            f"# Fusion with synthetic-vitals signal strength rho={rho:g} "
+            "(see data/scripts/make_vitals_rho_variants.py)\n"
+        )
         yaml.safe_dump(cfg, f, sort_keys=False)
     print("wrote", path)

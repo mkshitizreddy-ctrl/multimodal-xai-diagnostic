@@ -3,12 +3,11 @@ import sys
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.explain.generate_counterfactual_examples import load_config
 from src.data.dataset import ChestXrayDataset
+from src.explain.generate_counterfactual_examples import load_config
 from src.models.vision_encoder import ChestXrayVisionModel
 
 
