@@ -1,16 +1,13 @@
-
-from pathlib import Path
-from collections import defaultdict
 import argparse
 import hashlib
+from collections import defaultdict
+from pathlib import Path
 
 import pandas as pd
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Check duplicate image contents across dataset splits."
-    )
+    parser = argparse.ArgumentParser(description="Check duplicate image contents across dataset splits.")
     parser.add_argument(
         "--data-dir",
         type=Path,
@@ -53,11 +50,7 @@ def main():
                 }
             )
 
-    duplicates = {
-        digest: records
-        for digest, records in hash_groups.items()
-        if len(records) > 1
-    }
+    duplicates = {digest: records for digest, records in hash_groups.items() if len(records) > 1}
 
     print("Dataset directory:", args.data_dir)
     print("Total images checked:", sum(map(len, hash_groups.values())))
@@ -68,11 +61,7 @@ def main():
     for i, records in enumerate(duplicates.values(), start=1):
         print(f"\nDuplicate group {i}:")
         for record in records:
-            print(
-                f"  split={record['split']}, "
-                f"label={record['label']}, "
-                f"image={record['image']}"
-            )
+            print(f"  split={record['split']}, label={record['label']}, image={record['image']}")
 
     if missing:
         print("\nMissing files:")
