@@ -6,6 +6,55 @@ build phase they correspond to.
 ## [Unreleased]
 - Deploy live demo to Hugging Face Spaces
 
+## v0.14 — Patient-disjoint, deduplicated evaluation and Grad-CAM diagnostics (Oct 24–27, 2026)
+- New patient-disjoint split with exact-duplicate removal (`data/scripts/prepare_patient_disjoint_*`,
+  `verify_patient_disjoint_dedup*.py`, `inspect_duplicate_images.py`): 5,856 → 5,824 unique image
+  contents; 3,727 train / 932 val / 1,165 test. SHA-256 and known pneumonia patient-ID checks found
+  no cross-split overlap; Normal-patient identity cannot be verified, so full patient-level
+  separation is not claimed.
+- Synthetic-vitals signal sweep (rho = 0, 0.25, 0.5, 0.75, 1.0) on the new split, with generated
+  vision/fusion configs (`make_patient_disjoint_dedup_rho_configs.py`) and paired comparisons
+  (DeLong, paired bootstrap, Holm–Bonferroni adjustment) — see
+  `docs/patient_disjoint_dedup_rho_experiment_report_v1.md`. Vision-only AUROC is constant by
+  design; fusion AUROC rises with rho. This reflects injected synthetic signal, not clinical benefit.
+- Grad-CAM diagnostics on all 1,165 test images: 268 zero-valued maps (266/316 Normal, 2/849
+  Pneumonia), traced to raw maps that are entirely negative before the standard ReLU
+  (`src/explain/inspect_*gradcam*.py`, `analyze_gradcam_*`).
+- Grad-CAM patch-deletion faithfulness evaluation (`src/explain/evaluate_gradcam_faithfulness.py`),
+  compared against a random-patch baseline; reported as an intervention-specific proxy only.
+- `docs/session_audit_2026-10-27.md` and preserved GPU latency utilities
+  (`benchmark_latency.py`, `benchmark_latency_v2.py`). No latency results are claimed.
+- CI now triggers on `master` and the CI-scoped ruff check passes.
+- README shortened and rewritten around the latest experiment; Streamlit demo link fixed.
+
+## v0.13 — Deterministic-seeding reruns; attention-consistency claim downgraded (Oct 3–4, 2026)
+- Re-ran CBAM / no-attention (v2) and attention-consistency under consistent deterministic seeding
+  (5 seeds). Attention comparisons: AUROC CBAM vs none p=0.147, SE vs none p=0.70, SE vs CBAM
+  p=0.117; no significant localization differences (p ≥ 0.18).
+- Attention-consistency: AUROC cost confirmed (−0.0317, p=0.036) but the localization gain is no
+  longer significant (+0.063, p=0.196; was p=0.038 under mixed seeding). README claim downgraded
+  accordingly.
+
+## v0.12 — Reproducibility, SE attention, calibration and published-protocol comparison (Sep 20–29, 2026)
+- `src/seeding.py`: deterministic seeding (Python/NumPy/torch, cuDNN deterministic, DataLoader
+  workers). A same-seed rerun is now bit-for-bit identical; the earlier divergence was traced to
+  unseeded randomness.
+- SE attention (`src/models/attention.py`, `use_se` in `vision_encoder.py` / `train.py`) and a
+  5-seed CBAM / SE / no-attention comparison.
+- Calibration thread: baseline overconfidence (ECE ≈ 0.135), temperature scaling (little help),
+  isotonic regression (large AUROC cost), and label smoothing (ECE 0.136 → 0.103 on vision; fusion
+  0.135 → 0.112 with no detectable ranking cost). Smoothing sweep (0.05 / 0.1 / 0.2) and paired
+  bootstrap comparisons added (`src/fit_temperature.py`, `src/fit_isotonic.py`,
+  `src/evaluate_calibration.py`, `src/compare_auroc_paired.py`).
+- Comparison with a published split protocol (`docs/potharaju_comparison.md`): on a patient-blind
+  split our CBAM model's accuracy rose 86.38% → 96.88% and AUROC 0.960 → 0.997, with 63% of test
+  images sharing a patient with training data — suggesting split methodology largely explains
+  the gap to published numbers.
+- Configurable augmentation and full-metrics evaluation pipeline (`src/evaluate_full_metrics.py`).
+- Fixed a test fixture missing the `seed` key after the seeding change.
+- CBAM and attention-consistency extended to 5 seeds; effects weakened or changed with more seeds
+  (see v0.13 for the final seeded results).
+
 ## v0.10 — Fusion explainability, attention-consistency training, weight sweep
 - `src/explain/fusion_wrapper.py`: `FusionModelImageWrapper` adapts the
   dual-input fusion model to the single-input interface Grad-CAM and the
