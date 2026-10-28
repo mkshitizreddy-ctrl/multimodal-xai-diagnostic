@@ -81,7 +81,7 @@ conda activate ai_env
 pip install -r requirements.txt
 ```
 
-Dataset preparation scripts expect the source chest X-ray images to be available in the configured data location. Review `configs/data.yaml` and the relevant preparation script before running them. Note that `configs/data.yaml` describes the earlier curator-split pipeline; the latest patient-disjoint, deduplicated experiment uses `configs/*_patient_disjoint_dedup_rho_v1_*.yaml`, which point to their own split CSVs under `data/processed_patient_disjoint_dedup_rho_v1_*/`.
+Dataset preparation scripts expect the source chest X-ray images to be available in the configured data location. Review `configs/data.yaml` and the relevant preparation script before running them. Note that `configs/data.yaml` supplies the label classes and tabular feature names, but the split CSV paths come from each experiment's train config. The latest patient-disjoint, deduplicated experiment uses `configs/*_patient_disjoint_dedup_rho_v1_*.yaml`, which point to their own split CSVs under `data/processed_patient_disjoint_dedup_rho_v1_*/`.
 
 ## Common commands
 

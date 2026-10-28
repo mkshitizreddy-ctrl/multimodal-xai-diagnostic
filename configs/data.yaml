@@ -6,6 +6,13 @@
 # downloads the images AND generates the tabular features below directly —
 # there is no separate preprocess.py step for this dataset (unlike NIH).
 #
+# SCOPE NOTE: src/train.py, src/train_fusion.py and src/evaluate_full_metrics.py still
+# read the label classes and tabular_features from this file. The split CSV paths
+# (train_csv / val_csv / test_csv) are NOT taken from here; they come from each
+# experiment's train config. The latest patient-disjoint, deduplicated experiment
+# (configs/*_patient_disjoint_dedup_rho_v1_*.yaml) therefore overrides the splits
+# described in the `split:` block below.
+#
 # IMPORTANT: Patient Age, Patient Gender, Temperature, and SpO2 are
 # SYNTHETIC — the source dataset ships images only, no EHR data. See
 # docs/ethics_statement.md before presenting any results from this pipeline.
@@ -35,6 +42,8 @@ tabular_features:
   - "SpO2"
 
 split:
+  # Documentation of the ORIGINAL pipeline only: no training/evaluation script reads this
+  # block. See the scope note at the top of this file for the current experiment.
   # Train/test is preserved exactly as the original dataset curators split
   # it (already patient-disjoint). Validation is carved out of the train
   # split only, patient-grouped — see prepare_pneumonia_dataset.py.
