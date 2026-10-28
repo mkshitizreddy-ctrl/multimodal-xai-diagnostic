@@ -1,10 +1,10 @@
 # Grad-CAM patch-deletion experiment
 
 - Test CSV: `data/processed_patient_disjoint_dedup_rho_v1_0/test.csv`
-- Checkpoint: `checkpoints/vision_baseline/best_model.pth`
+- Checkpoint: `checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth`
 - Images evaluated: 1165
-- Nonzero Grad-CAM maps: 969
-- Zero Grad-CAM maps: 196
+- Nonzero Grad-CAM maps: 897
+- Zero Grad-CAM maps: 268
 - Random masks per image/fraction: 10
 - Patch grid: 16 x 16
 - Bootstrap replicates: 2000
@@ -22,23 +22,23 @@ Positive paired difference means Grad-CAM deletion caused a larger logit decreas
 
 | Requested fraction | Actual patch fraction | n paired | Grad-CAM mean drop | Random mean drop (same images) | Paired difference | Bootstrap 95% CI |
 |---:|---:|---:|---:|---:|---:|---:|
-| 5% | 5.08% | 969 | 1.095916 | 0.451536 | 0.644380 | [0.573201, 0.717075] |
-| 10% | 10.16% | 969 | 1.912190 | 1.185712 | 0.726477 | [0.654370, 0.807536] |
-| 20% | 19.92% | 969 | 3.061148 | 2.341220 | 0.719928 | [0.634335, 0.806841] |
-| 30% | 30.08% | 969 | 3.697545 | 2.958718 | 0.738826 | [0.654711, 0.824836] |
-| 40% | 39.84% | 969 | 3.830365 | 3.172948 | 0.657417 | [0.570925, 0.744303] |
+| 5% | 5.08% | 897 | 1.247706 | 0.044735 | 1.202971 | [1.136958, 1.267786] |
+| 10% | 10.16% | 897 | 2.055965 | 0.635932 | 1.420033 | [1.331714, 1.507374] |
+| 20% | 19.92% | 897 | 2.934244 | 2.024510 | 0.909734 | [0.806441, 1.014722] |
+| 30% | 30.08% | 897 | 3.260296 | 3.076247 | 0.184049 | [0.078510, 0.297860] |
+| 40% | 39.84% | 897 | 3.158397 | 3.559055 | -0.400658 | [-0.508866, -0.290252] |
 
 ## Zero-map subgroup
 
-- Zero-map images: 196 of 1165 (16.82%).
+- Zero-map images: 268 of 1165 (23.00%).
 - Grad-CAM deletion metrics are undefined for these images; random patch deletion results are still recorded in the CSV.
 
 ## Class counts
 
 | True label | Images | Zero maps |
 |---:|---:|---:|
-| 0 | 316 | 196 |
-| 1 | 849 | 0 |
+| 0 | 316 | 266 |
+| 1 | 849 | 2 |
 
 ## Interpretation cautions
 
