@@ -111,6 +111,31 @@ python -m pytest -q
 
 The most recently recorded full test run passed **84 tests**, with six third-party deprecation warnings. Run the tests locally to verify your environment. For multi-seed experiments, use separate `--checkpoint-dir` and `--log-dir` values to avoid overwriting outputs. Check the relevant YAML configuration and each script's `--help` before running other experiment variants.
 
+## Reproducing the latest experiment
+
+> **Status: derived from the scripts, not yet end-to-end tested.** The steps below follow the order and paths hard-coded in the repository's scripts. Run them in order and check each script's `--help` where it has one. Generated data (`data/processed*/`), checkpoints, and logs are not committed to Git.
+
+1. **Base data.** Place the source images in `data/raw/images` and run `data/scripts/prepare_pneumonia_dataset.py` to create `data/processed/`.
+2. **Patient-disjoint, deduplicated split** (reads `data/processed`, writes `data/processed_patient_disjoint_dedup_v1`):
+   ```bash
+   python data/scripts/prepare_patient_disjoint_dedup_dataset.py
+   python data/scripts/verify_patient_disjoint_dedup.py
+   ```
+3. **Synthetic-signal variants** for ρ = 0, 0.25, 0.5, 0.75, 1.0 (writes `data/processed_patient_disjoint_dedup_rho_v1_<ρ>`):
+   ```bash
+   python data/scripts/make_patient_disjoint_dedup_rho_variants.py
+   python data/scripts/verify_patient_disjoint_dedup_rho_variants.py
+   ```
+4. **Configs.** The per-ρ YAML files `configs/{vision,fusion}_patient_disjoint_dedup_rho_v1_<ρ>.yaml` are committed; `data/scripts/make_patient_disjoint_dedup_rho_configs.py` regenerates them. Each config sets its own split CSVs, checkpoint directory, and log directory.
+5. **Train** (example: ρ = 0; repeat for each ρ). `configs/data.yaml` still supplies the class and feature names:
+   ```bash
+   python src/train.py --data-config configs/data.yaml --train-config configs/vision_patient_disjoint_dedup_rho_v1_0.yaml
+   python src/train_fusion.py --data-config configs/data.yaml --train-config configs/fusion_patient_disjoint_dedup_rho_v1_0.yaml
+   ```
+   Vision-only training does not use the synthetic features, so the vision-only AUROC is the same across ρ in the reported table.
+6. **Compare AUROCs** with `src/verify_auroc_comparison.py` (takes `--checkpoint-a`, `--checkpoint-b`, `--train-config`, `--output-csv`, and defaults to the older `rho_v2` config, so pass the dedup config explicitly).
+7. **Explainability.** `src/explain/analyze_gradcam_testset.py` (zero-map diagnostic) and `src/explain/measure_lung_localization.py` take a checkpoint. `src/explain/evaluate_gradcam_faithfulness.py` **requires** `--checkpoint`; use `checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth` so it matches the split.
+
 ## Other research
 
 The repository also contains experiments on CBAM versus SE versus no attention, attention-consistency training, probability calibration, and a comparison with a published paper's described split protocol. These experiments use different configurations and, in some cases, different split/seeding regimes. Their findings should not be treated as directly interchangeable with the latest deduplicated, patient-disjoint rho experiment.
