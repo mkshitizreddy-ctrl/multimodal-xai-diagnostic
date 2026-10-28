@@ -180,8 +180,31 @@ Normal and 0.501 (SD 0.130, $n=847$) for Pneumonia images. This statistic is
 conditional on a valid map, excludes the 268 zero-map cases, and measures overlap
 with the lung region rather than explanation correctness. A six-image
 counterfactual-inpainting check produced no prediction flips; this sample is far
-too small to generalize. A Grad-CAM patch-deletion faithfulness analysis is not
-reported here: its first run used a different checkpoint and is being rerun.
+too small to generalize. Finally, a patch-deletion analysis on the 897 nonzero maps ($16\times16$ grid; top Grad-CAM patches
+versus ten random patch sets of equal size, replaced by mid-gray) gave a paired Pneumonia-logit-drop
+advantage for Grad-CAM at 5--20\% deletion that shrank at 30\% and reversed at 40\%
+(Table~\ref{tab:deletion}). Pooled results are dominated by Pneumonia images (847 of 897); the Normal
+subgroup has only 50 images with nonzero maps. This shows sensitivity to one deletion intervention, not
+explanation validity, and the reversal was not investigated.
+
+\begin{table}[htbp]
+\centering
+\caption{Mean Pneumonia-logit decrease under Grad-CAM-guided deletion minus random deletion (paired
+difference, bootstrap 95\% CI, 2,000 resamples), nonzero-map images only.}
+\label{tab:deletion}
+\small
+\begin{tabular}{lccc}
+\toprule
+Deleted & All ($n=897$) & Pneumonia ($n=847$) & Normal ($n=50$) \\
+\midrule
+5\% & $+1.203$ [$+1.145$, $+1.270$] & $+1.183$ [$+1.121$, $+1.246$] & $+1.540$ [$+1.185$, $+1.900$] \\
+10\% & $+1.420$ [$+1.330$, $+1.509$] & $+1.373$ [$+1.288$, $+1.461$] & $+2.222$ [$+1.716$, $+2.736$] \\
+20\% & $+0.910$ [$+0.808$, $+1.015$] & $+0.811$ [$+0.708$, $+0.906$] & $+2.588$ [$+2.009$, $+3.126$] \\
+30\% & $+0.184$ [$+0.074$, $+0.292$] & $+0.041$ [$-0.065$, $+0.143$] & $+2.610$ [$+2.058$, $+3.185$] \\
+40\% & $-0.401$ [$-0.513$, $-0.294$] & $-0.571$ [$-0.671$, $-0.474$] & $+2.477$ [$+1.872$, $+3.118$] \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Limitations}
 The data set is pediatric and from a single public source; performance may
@@ -231,7 +254,8 @@ among three correction strategies evaluated, only training-time label
 smoothing improved calibration without a statistically confirmed cost to
 ranking, on both models. On the later patient-disjoint, deduplicated split, fusion AUROC rose with the
 strength of the injected synthetic signal while explanations for Normal images
-were frequently empty (zero Grad-CAM maps). Future work should validate on external,
+were frequently empty (zero Grad-CAM maps), and a Grad-CAM patch-deletion advantage over random
+deletion disappeared at the largest deletion fraction. Future work should validate on external,
 patient-linked data, compare explanations with expert annotations, and
 extend the remaining three-seed comparisons and the label-smoothing value
 sweep to five seeds for full statistical consistency with the results

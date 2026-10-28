@@ -35,25 +35,27 @@ Because Temperature and SpO2 were synthetic and deliberately class-dependent, th
 
 ## Grad-CAM Faithfulness Evaluation
 
-> **Correction (2026-10-29): checkpoint mismatch.** The results in this section are **not** attributable to the patient-disjoint, deduplicated vision model (`checkpoints/vision_patient_disjoint_dedup_rho_v1_0`). `gradcam_faithfulness_patient_disjoint_dedup_rho_v1_vision/faithfulness_summary.md` records `checkpoints/vision_baseline/best_model.pth` as the checkpoint, which is the script's default `--checkpoint`. On the same 1,165 test images, this run's predicted probabilities differ from the Grad-CAM diagnostic run (maximum absolute difference 0.99; 66 images differ by more than 0.1; 27 predicted labels disagree), and it reports 196 zero maps versus 268 in the diagnostic (zero-map status differs for 100 images). The vision_baseline model was also trained on a different split, so its training data may overlap this test set (not verified). Do not cite the table or interpretation below for the dedup model until the experiment is rerun with `--checkpoint checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth`. The Grad-CAM zero-map, lung-localization, and counterfactual results elsewhere in this report are unaffected: their per-image probabilities match the dedup checkpoint.
+A patch-deletion experiment was run on all 1,165 images of the patient-disjoint, deduplicated test set using the dedup vision checkpoint (`checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth`). An earlier run used the wrong default checkpoint and was replaced; this version was verified to reproduce the diagnostic run's per-image probabilities exactly and its 268 zero maps. The image was divided into a \(16 \times 16\) grid, patches were ranked by mean Grad-CAM activation, and the top-ranked patches were set to zero in the normalized tensor (mid-gray in image space) at requested fractions of 5%, 10%, 20%, 30%, and 40%. For each image and fraction, ten random patch sets of the same size gave a baseline. The outcome is the mean Pneumonia-logit decrease under Grad-CAM-guided deletion minus the mean decrease under random deletion, with paired per-image bootstrap 95% CIs (2,000 replicates; the intervals below were recomputed from the per-image CSV with seed 42 and differ from `faithfulness_summary.md` in the third decimal because of bootstrap resampling). Only the 897 images with nonzero maps (847 Pneumonia, 50 Normal) can be evaluated; the 268 zero-map images (266 Normal, 2 Pneumonia) have no Grad-CAM ranking and are excluded.
 
-A patch-deletion experiment was conducted on all 1,165 images in the patient-disjoint, deduplicated test set to assess whether regions ranked highly by Grad-CAM were more influential on the model's Pneumonia logit than randomly selected image patches. The image was divided into a \(16 \times 16\) grid, and patches were ranked by their mean Grad-CAM activation. The highest-ranked patches were replaced with zero-valued pixels in the normalized image tensor at requested deletion fractions of 5%, 10%, 20%, 30%, and 40%. Under the image normalization used in this project, zero-valued normalized pixels correspond to mid-gray in the original image space.
+| Requested fraction | Mean logit-drop difference (Grad-CAM − random) | Paired bootstrap 95% CI |
+|---:|---:|---:|
+| 5% | +1.203 | [+1.145, +1.270] |
+| 10% | +1.420 | [+1.330, +1.509] |
+| 20% | +0.910 | [+0.808, +1.015] |
+| 30% | +0.184 | [+0.074, +0.292] |
+| 40% | -0.401 | [-0.513, -0.294] |
 
-For comparison, ten random patch masks were sampled per image and deletion fraction, with the same number of patches deleted as in the Grad-CAM intervention. The primary outcome was the difference between the mean Pneumonia-logit decrease under Grad-CAM-guided deletion and the mean decrease under random deletion. Paired per-image bootstrap confidence intervals were estimated using 2,000 replicates.
+| Requested fraction | Pneumonia (n=847) difference [95% CI] | Normal (n=50) difference [95% CI] |
+|---:|---:|---:|
+| 5% | +1.183 [+1.121, +1.246] | +1.540 [+1.185, +1.900] |
+| 10% | +1.373 [+1.288, +1.461] | +2.222 [+1.716, +2.736] |
+| 20% | +0.811 [+0.708, +0.906] | +2.588 [+2.009, +3.126] |
+| 30% | +0.041 [-0.065, +0.143] | +2.610 [+2.058, +3.185] |
+| 40% | -0.571 [-0.671, -0.474] | +2.477 [+1.872, +3.118] |
 
-| Requested deletion fraction | Images with nonzero Grad-CAM maps | Mean logit-drop difference (Grad-CAM − random) | Paired bootstrap 95% CI |
-|---:|---:|---:|---:|
-| 5% | 969 | 0.6444 | [0.5732, 0.7171] |
-| 10% | 969 | 0.7265 | [0.6544, 0.8075] |
-| 20% | 969 | 0.7199 | [0.6343, 0.8068] |
-| 30% | 969 | 0.7388 | [0.6547, 0.8248] |
-| 40% | 969 | 0.6574 | [0.5709, 0.7443] |
+**Interpretation.** Grad-CAM-ranked deletion reduced the Pneumonia logit more than random deletion at 5%, 10%, and 20% deletion, but the advantage shrank at 30% (not significant for Pneumonia images alone) and **reversed at 40%**, where random deletion produced a larger average drop (−0.401, CI [−0.509, −0.290]; −0.571 among Pneumonia images). Pooled results are dominated by Pneumonia images (847 of 897). The Normal subgroup (n=50) is small and selected by having a nonzero map; there the paired differences were positive at every fraction, but mean logit "drops" were negative for random deletion from 10% and for Grad-CAM deletion at 40% (the Pneumonia logit *increased* on average), so its pattern should not be generalized. The mechanism behind the reversal was not investigated; deletion of large areas can create out-of-distribution inputs, and the random baseline uses scattered grid patches rather than matched contiguous regions.
 
-Across all five deletion fractions, the mean paired difference was positive and each bootstrap confidence interval excluded zero. This indicates that, among images with nonzero Grad-CAM maps, deleting the highest-ranked patches produced a larger average decrease in the Pneumonia logit than deleting the same number of randomly selected patches.
-
-The class-specific analysis showed positive mean paired differences at every deletion fraction for both classes. However, the valid-map sample was imbalanced: all 849 Pneumonia images had nonzero maps, compared with only 120 of 316 Normal images. The remaining 196 Normal images had zero Grad-CAM maps and were excluded from the primary Grad-CAM-versus-random comparison. In the valid-map Normal subgroup, mean logit drops became negative at higher deletion fractions, indicating that the intervention could increase rather than decrease the Pneumonia logit on average. These findings warrant caution when interpreting pooled results.
-
-This experiment evaluates model sensitivity to a specific image-deletion intervention; it does not establish clinical explanation correctness, causal relevance, or reliable localization of pneumonia. The random baseline used uniformly sampled grid patches rather than matched contiguous regions, and patch replacement may introduce artifacts. The results should therefore be interpreted as evidence that Grad-CAM-ranked patches were more influential than this random-patch baseline under the tested intervention, not as proof of clinical faithfulness.
+This experiment measures sensitivity to one patch-replacement intervention. It does not establish clinical explanation correctness, causal relevance, or reliable localization of pneumonia, and it does not support a claim that Grad-CAM is faithful across deletion fractions.
 
 ## Limitations
 
