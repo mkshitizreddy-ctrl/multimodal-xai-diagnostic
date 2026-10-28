@@ -92,7 +92,9 @@ def main():
     )
     parser.add_argument(
         "--checkpoint",
-        default="checkpoints/vision_baseline/best_model.pth",
+        required=True,
+        help="Vision checkpoint to evaluate. Required: it must match --test-csv's split "
+        "(e.g. checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth).",
     )
     parser.add_argument(
         "--test-csv",
