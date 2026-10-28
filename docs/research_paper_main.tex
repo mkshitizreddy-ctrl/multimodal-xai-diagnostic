@@ -41,7 +41,10 @@ this, and that training with label smoothing does, without a statistically
 confirmed cost to ranking performance on either model. We report all
 thresholded and ranking metrics with bootstrap confidence intervals and
 identify and correct a training non-determinism issue discovered during
-this replication work.
+this replication work. A final patient-disjoint, deduplicated evaluation
+(1,165 test images) showed near-ceiling vision AUROC (0.9978), fusion AUROC
+rising from 0.9982 to 1.0000 as injected synthetic signal strengthened, and
+Grad-CAM maps that were entirely zero for 23\% of test images.
 \end{abstract}
 
 \section{Introduction}
@@ -110,6 +113,76 @@ horizontal-flip and small-rotation augmentation.
 
 \input{research_paper_revisions}
 
+\section{Patient-Disjoint, Deduplicated Evaluation}
+\label{sec:dedup}
+
+\subsection{Data and Protocol}
+A later experiment used a patient-disjoint split after removing exact duplicate
+image contents (32 of 5,856 records, leaving 5,824 images), giving 3,727
+training, 932 validation, and 1,165 test images (316 Normal, 849 Pneumonia).
+SHA-256 image hashes and known pneumonia patient identifiers showed no
+cross-split overlap; patient identity for Normal images could not be verified,
+so complete patient-level separation is not claimed. Because this test set
+differs in size and composition from the original 624-image split used above,
+its metrics are not directly comparable with earlier results, and we do not
+attribute the difference to a single cause.
+
+\subsection{Synthetic-Signal Sweep}
+The fusion model was trained at five synthetic-signal strengths $\rho$, where
+$\rho$ controls how strongly the synthetic Temperature and SpO$_2$ features
+depend on the label. Table~\ref{tab:dedup-rho} compares each fusion model with
+the vision-only model (AUROC 0.997782, identical in all rows because the vision
+branch does not receive the synthetic features) using paired DeLong tests and
+paired-bootstrap confidence intervals (2,000 resamples, seed 42) on the same
+1,165 test images. Holm--Bonferroni adjustment was applied to the five DeLong
+$p$-values; the bootstrap intervals are unadjusted.
+
+\begin{table}[htbp]
+\centering
+\caption{Fusion versus vision-only AUROC on the deduplicated, patient-disjoint test
+set. $\Delta$ = fusion $-$ vision-only. Comparisons share one test set and are not
+independent replications.}
+\label{tab:dedup-rho}
+\small
+\begin{tabular}{lccccc}
+\toprule
+$\rho$ & Fusion AUROC & $\Delta$ & Bootstrap 95\% CI & DeLong $p$ & Holm $p$ \\
+\midrule
+0.00 & 0.998174 & $+0.000391$ & [$-0.000612$, $+0.001465$] & 0.455 & 0.455 \\
+0.25 & 0.999191 & $+0.001409$ & [$+0.000503$, $+0.002497$] & 0.0042 & 0.0085 \\
+0.50 & 0.999825 & $+0.002043$ & [$+0.000917$, $+0.003425$] & 0.0012 & 0.0050 \\
+0.75 & 0.999959 & $+0.002177$ & [$+0.000991$, $+0.003631$] & 0.0010 & 0.0050 \\
+1.00 & 0.999981 & $+0.002199$ & [$+0.000991$, $+0.003687$] & 0.0011 & 0.0050 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Fusion AUROC increased with $\rho$, and the comparisons at $\rho\geq0.25$
+remained significant after adjustment, while $\rho=0$ did not. Because the
+tabular features are synthetic and deliberately label-dependent, this shows the
+effect of injected label-related information, not a benefit of real clinical
+measurements. All AUROC values are near ceiling, so the absolute differences
+are small ($\leq0.0022$).
+
+\subsection{Grad-CAM Diagnostics}
+For the vision model, Grad-CAM was computed on all 1,165 test images. A total of
+268 maps (23.00\%) were entirely zero: 266 of 316 Normal images (84.18\%) and 2
+of 849 Pneumonia images (0.24\%). Reproducing the raw maps before the standard
+ReLU showed that all 268 were entirely negative and therefore clipped to zero;
+none of the 897 nonzero maps was entirely negative. Zero-map images had a mean
+predicted pneumonia probability of 0.0042, versus 0.9436 for nonzero maps. A zero
+map provides no spatial localization for that image; it does not show that the
+model is insensitive to the image.
+
+Among the 897 nonzero maps, the mean fraction of positive Grad-CAM activation
+inside the segmented lung mask was 0.499 (SD 0.152): 0.465 (SD 0.360, $n=50$) for
+Normal and 0.501 (SD 0.130, $n=847$) for Pneumonia images. This statistic is
+conditional on a valid map, excludes the 268 zero-map cases, and measures overlap
+with the lung region rather than explanation correctness. A six-image
+counterfactual-inpainting check produced no prediction flips; this sample is far
+too small to generalize. A Grad-CAM patch-deletion faithfulness analysis is not
+reported here: its first run used a different checkpoint and is being rerun.
+
 \section{Limitations}
 The data set is pediatric and from a single public source; performance may
 not generalize across hospitals, imaging devices, age groups, or disease
@@ -137,7 +210,10 @@ were subsequently rerun at five seeds under deterministic seeding
 (Section~\ref{sec:deterministic-rerun}); those results supersede the earlier
 mixed-seeding estimates, which are retained only for transparency. Even so,
 $n=5$ seeds gives limited statistical power, and no multiplicity adjustment
-was applied to these paired $t$-tests.
+was applied to these paired $t$-tests. In the patient-disjoint evaluation
+(Section~\ref{sec:dedup}), AUROC is near ceiling, Normal-patient identity could
+not be verified, the tabular features are synthetic, and the Grad-CAM statistics
+are conditional on nonzero maps.
 
 \section{Conclusion}
 DenseNet-121 provides strong held-out ranking performance for this research
@@ -153,7 +229,9 @@ rerun. Separately, both
 the vision and fusion models are shown to be meaningfully overconfident;
 among three correction strategies evaluated, only training-time label
 smoothing improved calibration without a statistically confirmed cost to
-ranking, on both models. Future work should validate on external,
+ranking, on both models. On the later patient-disjoint, deduplicated split, fusion AUROC rose with the
+strength of the injected synthetic signal while explanations for Normal images
+were frequently empty (zero Grad-CAM maps). Future work should validate on external,
 patient-linked data, compare explanations with expert annotations, and
 extend the remaining three-seed comparisons and the label-smoothing value
 sweep to five seeds for full statistical consistency with the results

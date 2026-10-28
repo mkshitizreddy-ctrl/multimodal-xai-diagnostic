@@ -20,8 +20,10 @@ build phase they correspond to.
 - Grad-CAM diagnostics on all 1,165 test images: 268 zero-valued maps (266/316 Normal, 2/849
   Pneumonia), traced to raw maps that are entirely negative before the standard ReLU
   (`src/explain/inspect_*gradcam*.py`, `analyze_gradcam_*`).
-- Grad-CAM patch-deletion faithfulness evaluation (`src/explain/evaluate_gradcam_faithfulness.py`),
-  compared against a random-patch baseline; reported as an intervention-specific proxy only.
+- Grad-CAM patch-deletion faithfulness script (`src/explain/evaluate_gradcam_faithfulness.py`),
+  compared against a random-patch baseline. Its first run used the default `vision_baseline`
+  checkpoint instead of the dedup model, so those results are flagged as not attributable to the
+  dedup model until rerun (see the correction in the experiment report).
 - `docs/session_audit_2026-10-27.md` and preserved GPU latency utilities
   (`benchmark_latency.py`, `benchmark_latency_v2.py`). No latency results are claimed.
 - CI now triggers on `master` and the CI-scoped ruff check passes.
