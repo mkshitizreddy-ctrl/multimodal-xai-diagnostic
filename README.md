@@ -32,7 +32,7 @@ The latest experiment uses **5,824 unique image contents**, after removing 32 du
 | 0.75 | 0.997782 | 0.999959 | +0.002177 |
 | 1.00 | 0.997782 | 0.999981 | +0.002199 |
 
-Paired DeLong comparisons found no statistically significant difference at ρ = 0 (p = 0.455). Comparisons at ρ = 0.25–1.00 had unadjusted p-values below 0.05. These comparisons share the same test set, and no multiple-comparison correction was applied.
+Paired DeLong comparisons found no statistically significant difference at ρ = 0 (unadjusted p = 0.455; Holm–Bonferroni-adjusted p = 0.455). The comparisons at ρ = 0.25–1.00 remained significant after Holm–Bonferroni adjustment across the five comparisons (adjusted p ≈ 0.0085, 0.0050, 0.0050, 0.0050 for ρ = 0.25, 0.50, 0.75, 1.00). All five comparisons share the same test set and are not independent replications; the paired-bootstrap confidence intervals in the report are unadjusted.
 
 **Interpretation:** vision-only AUROC stayed constant while fusion AUROC increased as the synthetic signal became more strongly associated with the label. This demonstrates model behavior under controlled synthetic inputs; it does **not** show that real clinical measurements improve diagnosis.
 
@@ -81,7 +81,7 @@ conda activate ai_env
 pip install -r requirements.txt
 ```
 
-Dataset preparation scripts expect the source chest X-ray images to be available in the configured data location. Review `configs/data.yaml` and the relevant preparation script before running them.
+Dataset preparation scripts expect the source chest X-ray images to be available in the configured data location. Review `configs/data.yaml` and the relevant preparation script before running them. Note that `configs/data.yaml` describes the earlier curator-split pipeline; the latest patient-disjoint, deduplicated experiment uses `configs/*_patient_disjoint_dedup_rho_v1_*.yaml`, which point to their own split CSVs under `data/processed_patient_disjoint_dedup_rho_v1_*/`.
 
 ## Common commands
 
@@ -122,7 +122,7 @@ See [`docs/potharaju_comparison.md`](docs/potharaju_comparison.md) for the publi
 - Tabular features (including age, gender, temperature, and SpO₂) are synthetic and intentionally correlated with the target at different signal strengths.
 - The dataset is a single pediatric cohort. External validation on independent hospitals and populations has not been performed.
 - Patient IDs are available for pneumonia images but not reliably identifiable for Normal images; patient-level separation cannot be fully verified for the Normal class.
-- AUROC values in the latest experiment are near ceiling, so small numerical differences require caution. Paired tests are unadjusted for multiple comparisons.
+- AUROC values in the latest experiment are near ceiling, so small numerical differences require caution. DeLong p-values were Holm–Bonferroni-adjusted across the five ρ comparisons, but the bootstrap confidence intervals are unadjusted and all comparisons reuse one test set.
 - Grad-CAM and lung-energy fractions are explanatory proxies. Zero heatmaps are a known limitation, and inpainting counterfactuals do not establish causality.
 - This is a research prototype, not a medical device or clinical decision-support tool.
 
