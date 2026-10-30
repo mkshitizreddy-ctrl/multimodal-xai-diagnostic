@@ -267,6 +267,19 @@ def output_label(classes: list[str]) -> str:
     return f"{len(classes)} classes"
 
 
+DECISION_THRESHOLD = 0.5
+
+
+def verdict_text(classes: list[str], top_prob: float, threshold: float = DECISION_THRESHOLD) -> str:
+    """One-line reading of the model output. With a single sigmoid output the 'top class'
+    is always that class, so the probability alone must be compared with the threshold."""
+    if len(classes) != 1:
+        return f"{top_prob:.1%}"
+    if top_prob >= threshold:
+        return f"{top_prob:.1%}, at or above {threshold:g}: model predicts {classes[0]}"
+    return f"{top_prob:.1%}, below {threshold:g}: model predicts Normal"
+
+
 def is_empty_heatmap(heatmap) -> bool:
     """True when a Grad-CAM map has no positive evidence (all values <= 0).
     Standard Grad-CAM applies a ReLU, so such maps are entirely zero and carry
@@ -483,9 +496,8 @@ def main():
 
     st.divider()
     st.markdown(
-        f'<div class="section-label">Explanation for top prediction: '
-        f'<span style="color:{PALETTE["accent"]}">{top_class_name}</span> '
-        f"({top_prob:.1%})</div>",
+        f'<div class="section-label">Explanation for the {top_class_name} output: '
+        f'<span style="color:{PALETTE["accent"]}">{verdict_text(classes, top_prob)}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -509,10 +521,13 @@ def main():
             st.info("No counterfactual was run: with an empty heatmap there is no region to mask.")
         return
 
+    below_threshold = len(classes) == 1 and top_prob < DECISION_THRESHOLD
     with explain_col1:
         render_viewport(
             overlay,
-            "grad-cam — regions driving this prediction",
+            "grad-cam — regions that raised the Pneumonia score (score is below the threshold)"
+            if below_threshold
+            else "grad-cam — regions driving this prediction",
         )
 
     cf_explainer = OcclusionCounterfactualExplainer(
@@ -528,7 +543,10 @@ def main():
 
     with explain_col2:
         figure = make_side_by_side_figure(result)
-        flip_msg = "flipped" if result.flipped else "no flip @ 0.5"
+        if below_threshold:
+            flip_msg = "already below 0.5; sensitivity check only"
+        else:
+            flip_msg = "flipped" if result.flipped else "no flip @ 0.5"
         metric_text = (
             f"{result.original_probability:.0%} → {result.counterfactual_probability:.0%} ({flip_msg})"
         )

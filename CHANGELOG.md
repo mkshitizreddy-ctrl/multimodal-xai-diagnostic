@@ -9,6 +9,8 @@ October 2026 patient-disjoint audit. The `v0.x` headings below are internal phas
 ## [Unreleased]
 - Documented why Grad-CAM maps are blank: all 268 zero maps have pneumonia probability <= 0.134, because the
   single Pneumonia output has no positive evidence; clarified the dashboard notice.
+- Dashboard now states the model's call at the 0.5 threshold (for example "1.5%, below 0.5: model predicts Normal") instead
+  of "top prediction: Pneumonia (1.5%)", and labels the Grad-CAM and counterfactual panels accordingly for low-probability images.
 
 ## v3.0 — Audit, consistency and provenance release (Oct 30, 2026)
 - Builds on the v0.14 evaluation work below. The live demo (Streamlit Community Cloud) serves the

@@ -134,3 +134,15 @@ def test_loaded_checkpoint_records_provenance(monkeypatch, tmp_path):
 def test_output_label_single_and_multi_class():
     assert dashboard_app.output_label(["Pneumonia"]) == "Pneumonia (binary)"
     assert dashboard_app.output_label(["A", "B", "C"]) == "3 classes"
+
+
+def test_verdict_text_binary_output_uses_threshold():
+    below = dashboard_app.verdict_text(["Pneumonia"], 0.015)
+    above = dashboard_app.verdict_text(["Pneumonia"], 0.93)
+    assert "predicts Normal" in below and "1.5%" in below
+    assert "predicts Pneumonia" in above and "93.0%" in above
+    assert "predicts Pneumonia" in dashboard_app.verdict_text(["Pneumonia"], 0.5)
+
+
+def test_verdict_text_multiclass_is_plain_probability():
+    assert dashboard_app.verdict_text(["A", "B"], 0.25) == "25.0%"
