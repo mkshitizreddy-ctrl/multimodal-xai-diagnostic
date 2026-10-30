@@ -26,7 +26,16 @@ build phase they correspond to.
   deletion at 5–20% but the difference reversing at 40%. Intervention-specific proxy only.
 - `docs/session_audit_2026-10-27.md` and preserved GPU latency utilities
   (`benchmark_latency.py`, `benchmark_latency_v2.py`). No latency results are claimed.
-- CI now triggers on `master` and the CI-scoped ruff check passes.
+- CI now triggers on `master`, and ruff covers `src/`, `dashboard/`, `tests/`, `data/`, and the
+  root-level scripts.
+- `evaluate_gradcam_faithfulness.py` now requires `--checkpoint` (its old default pointed at the
+  original-split model, which caused the wrong-checkpoint run above).
+- Dashboard now serves the patient-disjoint dedup vision model (hosted on Hugging Face Hub). It
+  checks the loaded checkpoint's SHA-256 against an expected value and reports
+  "sha256 verified" or "UNVERIFIED" in the header, and shows a notice instead of a heatmap or
+  counterfactual when Grad-CAM has no positive evidence for an image. 3 new tests (87 total).
+- README: reproduction steps for the latest experiment (derived from the scripts; not yet tested
+  end to end).
 - README shortened and rewritten around the latest experiment; Streamlit demo link fixed.
 
 ## v0.13 — Deterministic-seeding reruns; attention-consistency claim downgraded (Oct 3–4, 2026)

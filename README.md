@@ -111,7 +111,7 @@ Run the test suite:
 python -m pytest -q
 ```
 
-The most recently recorded full test run passed **84 tests**, with six third-party deprecation warnings. Run the tests locally to verify your environment. For multi-seed experiments, use separate `--checkpoint-dir` and `--log-dir` values to avoid overwriting outputs. Check the relevant YAML configuration and each script's `--help` before running other experiment variants.
+The most recently recorded full test run passed **87 tests**, with six third-party deprecation warnings. Run the tests locally to verify your environment. For multi-seed experiments, use separate `--checkpoint-dir` and `--log-dir` values to avoid overwriting outputs. Check the relevant YAML configuration and each script's `--help` before running other experiment variants.
 
 ## Reproducing the latest experiment
 
