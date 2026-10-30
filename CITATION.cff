@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below."
+title: "Explainable Multimodal Pneumonia Classification"
+type: software
+authors:
+  - family-names: "Reddy"
+    given-names: "M. Kshitiz"
+    affiliation: "Bennett University"
+repository-code: "https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic"
+license: MIT
+abstract: >-
+  DenseNet-121 with CBAM/SE attention for chest X-ray pneumonia classification, evaluated on a
+  patient-disjoint, deduplicated split, with synthetic-tabular fusion, Grad-CAM localization and
+  counterfactual explanations, and a Streamlit dashboard. Research code; not a medical device.
+keywords:
+  - pneumonia
+  - chest X-ray
+  - explainable AI
+  - Grad-CAM
+  - multimodal learning

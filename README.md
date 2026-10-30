@@ -175,6 +175,6 @@ See [`docs/potharaju_comparison.md`](docs/potharaju_comparison.md) for the publi
 
 ## Ethics and citation
 
-See [`docs/ethics_statement.md`](docs/ethics_statement.md) for data and ethics notes. See [`docs/model_card.md`](docs/model_card.md) for the model served by the live demo (architecture, data, metrics, limitations, checkpoint SHA-256). References are listed in [`docs/references.bib`](docs/references.bib).
+See [`docs/ethics_statement.md`](docs/ethics_statement.md) for data and ethics notes. See [`docs/model_card.md`](docs/model_card.md) for the model served by the live demo (architecture, data, metrics, limitations, checkpoint SHA-256). References are listed in [`docs/references.bib`](docs/references.bib). To cite this repository, use [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository" button).
 
 **M. Kshitiz Reddy** · M.Tech (AI), Bennett University
