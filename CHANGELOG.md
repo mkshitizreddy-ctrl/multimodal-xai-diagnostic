@@ -5,6 +5,8 @@ build phase they correspond to.
 
 ## [Unreleased]
 - Deploy live demo to Hugging Face Spaces
+- Informal GPU latency measurements recorded in `docs/benchmark_notes_2026-10-30.md`; they show no reliable
+  fusion-vs-vision difference and no latency claim is made
 
 ## v0.14 — Patient-disjoint, deduplicated evaluation and Grad-CAM diagnostics (Oct 24–27, 2026)
 - New patient-disjoint split with exact-duplicate removal (`data/scripts/prepare_patient_disjoint_*`,
