@@ -259,6 +259,14 @@ def file_sha256(path: str) -> str:
     return digest.hexdigest()
 
 
+def output_label(classes: list[str]) -> str:
+    """Header text for the model output. The model has a single sigmoid output, so a
+    one-element class list is shown as '<class> (binary)', not as a class count."""
+    if len(classes) == 1:
+        return f"{classes[0]} (binary)"
+    return f"{len(classes)} classes"
+
+
 def is_empty_heatmap(heatmap) -> bool:
     """True when a Grad-CAM map has no positive evidence (all values <= 0).
     Standard Grad-CAM applies a ReLU, so such maps are entirely zero and carry
@@ -402,13 +410,14 @@ def main():
         f'<span class="v">{checkpoint_status}</span></div>'
     )
 
+    output_text = output_label(classes)
     st.markdown(
         f"""
         <div class="study-header">
             <div class="field"><span class="k">MODEL&nbsp;</span><span class="v">densenet121</span></div>
             <div class="field"><span class="k">CBAM&nbsp;</span><span class="v">{cbam_status}</span></div>
             {weights_html}
-            <div class="field"><span class="k">CLASSES&nbsp;</span><span class="v">{len(classes)}</span></div>
+            <div class="field"><span class="k">OUTPUT&nbsp;</span><span class="v">{output_text}</span></div>
         </div>
         """,
         unsafe_allow_html=True,

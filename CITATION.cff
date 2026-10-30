@@ -8,6 +8,8 @@ authors:
     affiliation: "Bennett University"
 repository-code: "https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic"
 license: MIT
+version: "3.0"
+date-released: 2026-10-30
 abstract: >-
   DenseNet-121 with CBAM/SE attention for chest X-ray pneumonia classification, evaluated on a
   patient-disjoint, deduplicated split, with synthetic-tabular fusion, Grad-CAM localization and

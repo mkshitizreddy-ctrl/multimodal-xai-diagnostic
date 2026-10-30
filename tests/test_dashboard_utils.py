@@ -129,3 +129,8 @@ def test_loaded_checkpoint_records_provenance(monkeypatch, tmp_path):
     dashboard_app.load_vision_model.clear()
     model, _, _, _ = dashboard_app.load_vision_model()
     assert model.checkpoint_provenance["verified"] is True
+
+
+def test_output_label_single_and_multi_class():
+    assert dashboard_app.output_label(["Pneumonia"]) == "Pneumonia (binary)"
+    assert dashboard_app.output_label(["A", "B", "C"]) == "3 classes"

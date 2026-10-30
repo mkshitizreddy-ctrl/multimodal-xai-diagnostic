@@ -3,10 +3,24 @@
 All notable changes to this project are documented here, grouped by the
 build phase they correspond to.
 
+Tags: `v1.0` and `v2.0` are earlier snapshots (August 2026). `v3.0` marks the state after the
+October 2026 patient-disjoint audit. The `v0.x` headings below are internal phase labels, not tags.
+
 ## [Unreleased]
-- Deploy live demo to Hugging Face Spaces
-- Informal GPU latency measurements recorded in `docs/benchmark_notes_2026-10-30.md`; they show no reliable
-  fusion-vs-vision difference and no latency claim is made
+- Nothing yet.
+
+## v3.0 — Audit, consistency and provenance release (Oct 30, 2026)
+- Builds on the v0.14 evaluation work below. The live demo (Streamlit Community Cloud) serves the
+  patient-disjoint dedup vision checkpoint, verified by SHA-256.
+- New `docs/model_card.md` for the served model; README quick start; `CITATION.cff` (MIT licence
+  holder corrected from a placeholder to the author).
+- Paper, architecture, ethics and deployment docs and notebooks reconciled with the latest
+  results; broken Markdown links fixed; duplicate `references.bib` entries removed, so the paper
+  builds with no undefined citations.
+- Informal GPU latency measurements recorded in `docs/benchmark_notes_2026-10-30.md`; they show no
+  reliable fusion-vs-vision difference and no latency claim is made.
+- Dashboard header shows `OUTPUT Pneumonia (binary)` instead of a bare class count (1 new test).
+- Unused original-split checkpoint removed from the Hugging Face repo.
 
 ## v0.14 — Patient-disjoint, deduplicated evaluation and Grad-CAM diagnostics (Oct 24–27, 2026)
 - New patient-disjoint split with exact-duplicate removal (`data/scripts/prepare_patient_disjoint_*`,
