@@ -60,7 +60,7 @@ Full methodology, confidence intervals, statistical tests, and artifacts: [`docs
 
 ## Explainability findings
 
-- **Grad-CAM:** evaluated on all 1,165 test images. There were 268 zero-valued heatmaps (23.0%): 266/316 Normal images and 2/849 Pneumonia images. In a six-case investigation, zero maps arose because the weighted raw Grad-CAM maps were entirely negative before the standard ReLU step.
+- **Grad-CAM:** evaluated on all 1,165 test images. There were 268 zero-valued heatmaps (23.0%): 266/316 Normal images and 2/849 Pneumonia images. In a six-case investigation, zero maps arose because the weighted raw Grad-CAM maps were entirely negative before the standard ReLU step. All 268 zero-map images have a predicted pneumonia probability of 0.134 or lower (mean 0.004). The model has a single Pneumonia output and Grad-CAM explains that output, so a blank map means no region supports a Pneumonia prediction, which is expected for images scored as clearly Normal. The 2 Pneumonia-labelled zero-map images are false negatives (probabilities 0.004 and 0.070).
 - **Lung localization:** among 897 nonzero maps, the mean fraction of positive Grad-CAM activation inside segmented lung masks was 0.499 (SD 0.152). This is a localization proxy, not a measure of whether the model focuses on pathology.
 - **Counterfactual occlusion:** no prediction flips occurred in a six-image sample. Probability changes reflect sensitivity to the inpainting intervention, not causal proof. This small sample should not be generalized to the full test set.
 - **Visualization caveat:** restricting a heatmap to a lung mask changes the displayed explanation; it does not establish that the classifier relied only on lung tissue.

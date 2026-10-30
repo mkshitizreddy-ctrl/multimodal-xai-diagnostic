@@ -32,7 +32,7 @@ Confusion counts: TP 837, FN 12, TN 305, FP 11. These were computed from the per
 
 ## Explainability behavior
 
-- Grad-CAM produced entirely zero maps for 268 of 1,165 test images (23.0%): 266 of 316 Normal and 2 of 849 Pneumonia. All were entirely negative before the standard ReLU. A zero map carries no spatial information; it does not show that the model ignores the image. The demo reports this instead of drawing a heatmap.
+- Grad-CAM produced entirely zero maps for 268 of 1,165 test images (23.0%): 266 of 316 Normal and 2 of 849 Pneumonia. All were entirely negative before the standard ReLU. All 268 zero-map images have a predicted pneumonia probability of 0.134 or lower (mean 0.004). The model has a single Pneumonia output and Grad-CAM explains that output, so a blank map means no region supports a Pneumonia prediction, which is expected for images scored as clearly Normal. The 2 Pneumonia-labelled zero-map images are false negatives (probabilities 0.004 and 0.070). A zero map carries no spatial information; it does not show that the model ignores the image. The demo reports this instead of drawing a heatmap.
 - Among the 897 nonzero maps, the mean fraction of positive Grad-CAM activation inside segmented lungs was 0.499 (SD 0.152). This is an overlap proxy, not a measure of explanation correctness.
 - In a patch-deletion test, Grad-CAM-ranked deletion reduced the Pneumonia logit more than random deletion at 5–20% deletion, with a shrinking advantage at 30% and a reversal at 40%. It measures sensitivity to one intervention and does not establish faithfulness or clinical validity.
 

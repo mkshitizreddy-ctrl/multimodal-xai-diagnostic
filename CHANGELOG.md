@@ -7,7 +7,8 @@ Tags: `v1.0` and `v2.0` are earlier snapshots (August 2026). `v3.0` marks the st
 October 2026 patient-disjoint audit. The `v0.x` headings below are internal phase labels, not tags.
 
 ## [Unreleased]
-- Nothing yet.
+- Documented why Grad-CAM maps are blank: all 268 zero maps have pneumonia probability <= 0.134, because the
+  single Pneumonia output has no positive evidence; clarified the dashboard notice.
 
 ## v3.0 — Audit, consistency and provenance release (Oct 30, 2026)
 - Builds on the v0.14 evaluation work below. The live demo (Streamlit Community Cloud) serves the

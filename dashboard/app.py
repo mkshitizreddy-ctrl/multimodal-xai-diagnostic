@@ -501,8 +501,9 @@ def main():
         with explain_col1:
             st.info(
                 "Grad-CAM found no positive evidence for this class on this image, so there "
-                "is no heatmap to show. This is common for images the model scores as Normal. "
-                "It does not mean the model ignores the image."
+                "is no heatmap to show. This happens when nothing in the image supports a Pneumonia "
+                "prediction: on the test set, every blank map had a pneumonia probability of 0.13 or "
+                "lower. It does not mean the model ignores the image."
             )
         with explain_col2:
             st.info("No counterfactual was run: with an empty heatmap there is no region to mask.")
