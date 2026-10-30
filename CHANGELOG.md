@@ -25,7 +25,9 @@ build phase they correspond to.
   the corrected run (dedup checkpoint, 897 nonzero maps) shows Grad-CAM deletion beating random
   deletion at 5–20% but the difference reversing at 40%. Intervention-specific proxy only.
 - `docs/session_audit_2026-10-27.md` and preserved GPU latency utilities
-  (`benchmark_latency.py`, `benchmark_latency_v2.py`). No latency results are claimed.
+  (`benchmark_latency.py`, which now takes a required `--cudnn-benchmark` / `--no-cudnn-benchmark`
+  flag; it replaces the earlier `benchmark_latency.py` / `benchmark_latency_v2.py` pair). No latency
+  results are claimed.
 - CI now triggers on `master`, and ruff covers `src/`, `dashboard/`, `tests/`, `data/`, and the
   root-level scripts.
 - `evaluate_gradcam_faithfulness.py` now requires `--checkpoint` (its old default pointed at the

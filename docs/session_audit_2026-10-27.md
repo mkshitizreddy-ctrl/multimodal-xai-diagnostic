@@ -25,3 +25,7 @@ After refreshing `origin` from GitHub, the local branch and remote `master` were
 1. Push this audit commit to `origin/master` and verify that the remote points to the new commit.
 2. If latency results are later collected, record the GPU model, PyTorch/CUDA/cuDNN versions, checkpoint identity, and complete timing output alongside the run; treat the current scripts as measurement tools, not results.
 3. Continue to describe Grad-CAM overlap and deletion findings as model- and intervention-specific proxies, not clinical validation or causal evidence.
+
+## Update 2026-10-30
+
+`benchmark_latency_v2.py` has been merged into `benchmark_latency.py`, which now requires an explicit `--cudnn-benchmark` or `--no-cudnn-benchmark` flag. The former `benchmark_latency.py` corresponds to `--cudnn-benchmark` and the former `benchmark_latency_v2.py` to `--no-cudnn-benchmark`; the measurement code is otherwise unchanged. The statements above describe the repository as audited on 2026-10-27. Still no latency results are claimed.

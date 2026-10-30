@@ -1,3 +1,4 @@
+import argparse
 import statistics
 import subprocess
 
@@ -6,10 +7,25 @@ import torch
 from src.models.fusion import ChestXrayFusionModel
 from src.models.vision_encoder import ChestXrayVisionModel
 
+parser = argparse.ArgumentParser(
+    description="GPU latency utility for the local rho=0 vision and fusion checkpoints. "
+    "Prints timings only; it does not record hardware or checkpoint identity."
+)
+parser.add_argument(
+    "--cudnn-benchmark",
+    action=argparse.BooleanOptionalAction,
+    required=True,
+    help="Set torch.backends.cudnn.benchmark after warm-up and before timing. Required, so every "
+    "run states which setting it used (this replaces the former benchmark_latency.py = "
+    "--cudnn-benchmark and benchmark_latency_v2.py = --no-cudnn-benchmark).",
+)
+args = parser.parse_args()
+
 assert torch.cuda.is_available(), "CUDA is not available"
 device = torch.device("cuda")
 print("GPU:", torch.cuda.get_device_name(0))
 print("PyTorch:", torch.__version__)
+print("cuDNN benchmark:", args.cudnn_benchmark)
 
 vck = torch.load(
     "checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth", map_location="cpu", weights_only=True
@@ -80,7 +96,7 @@ for _ in range(40):
     run_v()
     run_f()
 torch.cuda.synchronize()
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = args.cudnn_benchmark
 gpu_snapshot("Before timing (temperature, utilization, memory, power):")
 vt, ft = [], []
 for r in range(15):
