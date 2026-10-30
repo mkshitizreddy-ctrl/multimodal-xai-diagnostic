@@ -146,3 +146,10 @@ def test_verdict_text_binary_output_uses_threshold():
 
 def test_verdict_text_multiclass_is_plain_probability():
     assert dashboard_app.verdict_text(["A", "B"], 0.25) == "25.0%"
+
+
+def test_format_probability_never_shows_small_nonzero_as_zero():
+    assert dashboard_app.format_probability(0.0004) == "<0.1%"
+    assert dashboard_app.format_probability(0.0) == "0.0%"
+    assert dashboard_app.format_probability(0.015) == "1.5%"
+    assert "<0.1%" in dashboard_app.verdict_text(["Pneumonia"], 0.0004)

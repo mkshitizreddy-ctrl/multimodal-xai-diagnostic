@@ -11,6 +11,7 @@ October 2026 patient-disjoint audit. The `v0.x` headings below are internal phas
   single Pneumonia output has no positive evidence; clarified the dashboard notice.
 - Dashboard now states the model's call at the 0.5 threshold (for example "1.5%, below 0.5: model predicts Normal") instead
   of "top prediction: Pneumonia (1.5%)", and labels the Grad-CAM and counterfactual panels accordingly for low-probability images.
+- Dashboard polish: images fill their frames (Grad-CAM panel capped at 560 px), and tiny probabilities show as "<0.1%" instead of "0.0%".
 
 ## v3.0 — Audit, consistency and provenance release (Oct 30, 2026)
 - Builds on the v0.14 evaluation work below. The live demo (Streamlit Community Cloud) serves the

@@ -121,8 +121,10 @@ def _inject_theme_css():
         }}
 
         .viewport img {{
-            width: 100%;
+            width: 100% !important;
+            height: auto !important;
             display: block;
+            margin: 0 auto;
         }}
 
         .viewport .corner {{
@@ -186,7 +188,7 @@ def _pil_to_base64(image: Image.Image) -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def render_viewport(image, caption: str, metric: str | None = None):
+def render_viewport(image, caption: str, metric: str | None = None, max_width: int | None = None):
     """Renders an image inside the corner-bracket 'viewport' frame, with
     a mono caption underneath. `image` can be a PIL Image or a numpy
     array (uint8 HxWx3) - both come up in this file (uploaded PIL image
@@ -195,12 +197,13 @@ def render_viewport(image, caption: str, metric: str | None = None):
         image = Image.fromarray(image)
     b64 = _pil_to_base64(image)
     metric_html = f' <span class="metric">{metric}</span>' if metric else ""
+    img_style = f' style="max-width:{max_width}px"' if max_width else ""
     st.markdown(
         f"""
         <div class="viewport">
             <span class="corner tl"></span><span class="corner tr"></span>
             <span class="corner bl"></span><span class="corner br"></span>
-            <img src="data:image/png;base64,{b64}" />
+            <img src="data:image/png;base64,{b64}"{img_style} />
         </div>
         <div class="viewport-caption">{caption}{metric_html}</div>
         """,
@@ -270,14 +273,21 @@ def output_label(classes: list[str]) -> str:
 DECISION_THRESHOLD = 0.5
 
 
+def format_probability(p: float) -> str:
+    """Percent string that never shows a small non-zero probability as exactly 0.0%."""
+    if 0.0 < p < 0.001:
+        return "<0.1%"
+    return f"{p:.1%}"
+
+
 def verdict_text(classes: list[str], top_prob: float, threshold: float = DECISION_THRESHOLD) -> str:
     """One-line reading of the model output. With a single sigmoid output the 'top class'
     is always that class, so the probability alone must be compared with the threshold."""
     if len(classes) != 1:
-        return f"{top_prob:.1%}"
+        return format_probability(top_prob)
     if top_prob >= threshold:
-        return f"{top_prob:.1%}, at or above {threshold:g}: model predicts {classes[0]}"
-    return f"{top_prob:.1%}, below {threshold:g}: model predicts Normal"
+        return f"{format_probability(top_prob)}, at or above {threshold:g}: model predicts {classes[0]}"
+    return f"{format_probability(top_prob)}, below {threshold:g}: model predicts Normal"
 
 
 def is_empty_heatmap(heatmap) -> bool:
@@ -528,6 +538,7 @@ def main():
             "grad-cam — regions that raised the Pneumonia score (score is below the threshold)"
             if below_threshold
             else "grad-cam — regions driving this prediction",
+            max_width=560,
         )
 
     cf_explainer = OcclusionCounterfactualExplainer(
