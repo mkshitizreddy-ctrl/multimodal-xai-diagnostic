@@ -12,6 +12,24 @@ The live demo serves the vision-only model from the latest patient-disjoint, ded
 
 ---
 
+## Quick start
+
+Try the dashboard locally. No dataset or GPU is needed; the demo checkpoint is downloaded from Hugging Face Hub on first run, so an internet connection is required.
+
+```bash
+git clone https://github.com/mkshitizreddy-ctrl/multimodal-xai-diagnostic.git
+cd multimodal-xai-diagnostic
+
+conda create -n ai_env python=3.11
+conda activate ai_env
+pip install -r requirements.txt
+streamlit run dashboard/app.py
+```
+
+The page header should read "dedup vision (sha256 verified)". For training and the full pipeline, see Setup and "Reproducing the latest experiment" below.
+
+---
+
 ## What this project investigates
 
 - How well DenseNet-121 separates Normal and Pneumonia chest X-rays.
@@ -82,6 +100,8 @@ conda create -n ai_env python=3.11
 conda activate ai_env
 pip install -r requirements.txt
 ```
+
+`requirements.txt` pins CPU-only PyTorch (the build used by CI and Streamlit Cloud). For GPU training, install a CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) first, then run `pip install -r requirements-local.txt`, which has the same pins without PyTorch.
 
 Dataset preparation scripts expect the source chest X-ray images to be available in the configured data location. Review `configs/data.yaml` and the relevant preparation script before running them. Note that `configs/data.yaml` supplies the label classes and tabular feature names, but the split CSV paths come from each experiment's train config. The latest patient-disjoint, deduplicated experiment uses `configs/*_patient_disjoint_dedup_rho_v1_*.yaml`, which point to their own split CSVs under `data/processed_patient_disjoint_dedup_rho_v1_*/`.
 

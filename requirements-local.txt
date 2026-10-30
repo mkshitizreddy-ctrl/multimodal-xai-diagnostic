@@ -1,8 +1,8 @@
 ﻿# Core
-# NOTE: Streamlit Community Cloud runs Python 3.14 and is CPU-only. Plain
-# nvidia-nccl-cu12 (multi-GB download) and times out on Streamlit's build
-# infra. Pinning the +cpu build from PyTorch's own wheel index avoids that
-# entirely and is roughly 10x smaller. See https://pytorch.org/get-started/locally/
+# Same pins as requirements.txt, but WITHOUT PyTorch/torchvision, for a local environment where you
+# install PyTorch yourself first (e.g. a CUDA build for GPU training; see
+# https://pytorch.org/get-started/locally/). requirements.txt pins CPU-only PyTorch instead, which is
+# what CI and Streamlit Community Cloud use.
 PyYAML==6.0.3
 numpy==2.4.4
 pandas==3.0.5
