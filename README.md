@@ -8,6 +8,8 @@ A research project exploring pediatric pneumonia classification from chest X-ray
 
 **Python 3.11+ · MIT License · [Live demo](https://multimodal-xai-diagnostic-yhqvbbhkejld2b6jodcvh2.streamlit.app/)**
 
+The live demo serves the vision-only model from the latest patient-disjoint, deduplicated experiment (no tabular or fusion input); its header shows whether the loaded checkpoint matches the expected SHA-256. When Grad-CAM has no positive evidence for an image (common for images scored as Normal), the demo says so instead of showing a heatmap or counterfactual.
+
 ---
 
 ## What this project investigates

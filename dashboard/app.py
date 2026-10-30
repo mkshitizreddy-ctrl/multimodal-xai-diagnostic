@@ -17,6 +17,7 @@ own repo once you've uploaded a checkpoint there.
 """
 
 import base64
+import hashlib
 import io
 import os
 import sys
@@ -207,8 +208,7 @@ def render_viewport(image, caption: str, metric: str | None = None):
     )
 
 
-VISION_CHECKPOINT = "checkpoints/vision_baseline/best_model.pth"
-FUSION_CHECKPOINT = "checkpoints/fusion/best_model.pth"
+VISION_CHECKPOINT = "checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth"
 DATA_CONFIG_PATH = "configs/data.yaml"
 IMAGE_SIZE = 224
 NORM_MEAN, NORM_STD = 0.5, 0.25
@@ -240,7 +240,30 @@ def _get_hf_model_repo_id() -> str | None:
 
 
 HF_MODEL_REPO_ID = _get_hf_model_repo_id()
-HF_CHECKPOINT_FILENAME = "vision_baseline_best_model.pth"
+HF_CHECKPOINT_FILENAME = "best_model.pth"
+
+# The demo is meant to serve the patient-disjoint, deduplicated vision model
+# (CBAM on, vision-only) from the latest experiment. The app checks the SHA-256 of
+# whatever checkpoint it loads against this value and says so in the header, so a
+# wrong or replaced file is reported as "unverified" instead of being mislabeled.
+EXPECTED_CHECKPOINT_SHA256 = "b622f8c91b43f39b4e89b34b680eaeba9ab65c99591dde0dd91d35436027abd7"
+MODEL_LABEL = "dedup vision"
+
+
+def file_sha256(path: str) -> str:
+    """Hex SHA-256 of a file, read in chunks."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def is_empty_heatmap(heatmap) -> bool:
+    """True when a Grad-CAM map has no positive evidence (all values <= 0).
+    Standard Grad-CAM applies a ReLU, so such maps are entirely zero and carry
+    no spatial information; thresholding them also yields an empty mask."""
+    return float(np.max(heatmap)) <= 0.0
 
 
 def _download_checkpoint_from_hf_hub() -> str | None:
@@ -293,6 +316,12 @@ def load_vision_model():
             use_cbam=checkpoint.get("use_cbam", False),
         )
         model.load_state_dict(checkpoint["model_state_dict"])
+        sha = file_sha256(checkpoint_path)
+        model.checkpoint_provenance = {
+            "sha256": sha,
+            "verified": sha == EXPECTED_CHECKPOINT_SHA256,
+            "epoch": checkpoint.get("epoch"),
+        }
         return (
             model.to(device).eval(),
             checkpoint["classes"],
@@ -361,6 +390,13 @@ def main():
     checkpoint_status = "trained checkpoint" if is_trained else "random weights (demo mode)"
     cbam_status = "on" if getattr(model, "use_cbam", False) else "off"
 
+    provenance = getattr(model, "checkpoint_provenance", None)
+    if is_trained and provenance is not None:
+        checkpoint_status = (
+            f"{MODEL_LABEL} (sha256 verified)"
+            if provenance["verified"]
+            else "trained checkpoint (UNVERIFIED: not the expected file)"
+        )
     weights_html = (
         '<div class="field"><span class="k">WEIGHTS&nbsp;</span>'
         f'<span class="v">{checkpoint_status}</span></div>'
@@ -384,6 +420,7 @@ def main():
     )
     st.caption(
         "Research/portfolio prototype — not validated for clinical use. "
+        "Vision-only model from the patient-disjoint, deduplicated experiment (no tabular input). "
         "See the README for dataset, architecture, and limitations."
     )
 
@@ -450,6 +487,17 @@ def main():
         image_tensor,
         top_class_idx,
     )
+
+    if is_empty_heatmap(_heatmap):
+        with explain_col1:
+            st.info(
+                "Grad-CAM found no positive evidence for this class on this image, so there "
+                "is no heatmap to show. This is common for images the model scores as Normal. "
+                "It does not mean the model ignores the image."
+            )
+        with explain_col2:
+            st.info("No counterfactual was run: with an empty heatmap there is no region to mask.")
+        return
 
     with explain_col1:
         render_viewport(

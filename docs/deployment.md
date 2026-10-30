@@ -29,8 +29,8 @@ python -c "
 from huggingface_hub import HfApi
 api = HfApi()
 api.upload_file(
-    path_or_fileobj='checkpoints/vision_baseline/best_model.pth',
-    path_in_repo='vision_baseline_best_model.pth',
+    path_or_fileobj='checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth',
+    path_in_repo='best_model.pth',
     repo_id='<your-username>/multimodal-xai-diagnostic-weights',
     repo_type='model',
     token='<your-hf-write-token>',
@@ -77,4 +77,5 @@ of description every time.
 
 - Free tier CPU is enough for single-image inference - no GPU needed for the demo.
 - The app sleeps after inactivity on the free tier and takes a few seconds to wake up on the next visit - normal, not a bug.
-- If you also want the fusion model in the live demo, upload `checkpoints/fusion/best_model.pth` to the same Hub repo and extend `dashboard/app.py`'s `load_vision_model()` pattern for a fusion-model loader (not wired up by default, since the current UI only demos the vision-only model).
+- The demo serves the vision-only model from the patient-disjoint, deduplicated experiment. `dashboard/app.py` compares the SHA-256 of the loaded checkpoint with `EXPECTED_CHECKPOINT_SHA256` and shows "sha256 verified" or "UNVERIFIED" in the page header. If you upload a different checkpoint, update that constant (`certutil -hashfile <file> SHA256` on Windows, `sha256sum <file>` elsewhere). The original-split model (`vision_baseline_best_model.pth`) may still be in the Hub repo but is no longer loaded.
+- If you also want the fusion model in the live demo, upload a fusion checkpoint (for example `checkpoints/fusion_patient_disjoint_dedup_rho_v1_0/best_model.pth`) to the same Hub repo under its own filename and extend `dashboard/app.py`'s `load_vision_model()` pattern for a fusion-model loader (not wired up by default, since the current UI only demos the vision-only model).

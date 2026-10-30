@@ -90,3 +90,42 @@ def test_load_vision_model_loads_real_checkpoint_when_present(monkeypatch, tmp_p
 
     assert is_trained is True
     assert loaded_classes == classes
+
+
+def test_is_empty_heatmap_detects_all_zero_and_negative_maps():
+    assert dashboard_app.is_empty_heatmap(np.zeros((7, 7), dtype=np.float32)) is True
+    assert dashboard_app.is_empty_heatmap(-np.ones((7, 7), dtype=np.float32)) is True
+    heatmap = np.zeros((7, 7), dtype=np.float32)
+    heatmap[3, 3] = 0.01
+    assert dashboard_app.is_empty_heatmap(heatmap) is False
+
+
+def test_file_sha256_matches_hashlib(tmp_path):
+    import hashlib
+
+    path = tmp_path / "blob.bin"
+    path.write_bytes(b"abc" * 1000)
+    assert dashboard_app.file_sha256(str(path)) == hashlib.sha256(b"abc" * 1000).hexdigest()
+
+
+def test_loaded_checkpoint_records_provenance(monkeypatch, tmp_path):
+    """A loaded checkpoint gets a SHA-256 provenance record; it is flagged verified
+    only when it matches EXPECTED_CHECKPOINT_SHA256."""
+    from src.models.vision_encoder import ChestXrayVisionModel
+
+    classes = dashboard_app.load_data_config()["labels"]["classes"]
+    path = tmp_path / "fake_checkpoint.pth"
+    fake_model = ChestXrayVisionModel(num_classes=len(classes), pretrained=False)
+    torch.save({"model_state_dict": fake_model.state_dict(), "classes": classes, "epoch": 3}, path)
+    monkeypatch.setattr(dashboard_app, "VISION_CHECKPOINT", str(path))
+
+    dashboard_app.load_vision_model.clear()
+    model, _, _, is_trained = dashboard_app.load_vision_model()
+    assert is_trained is True
+    assert model.checkpoint_provenance["verified"] is False
+    assert model.checkpoint_provenance["epoch"] == 3
+
+    monkeypatch.setattr(dashboard_app, "EXPECTED_CHECKPOINT_SHA256", dashboard_app.file_sha256(str(path)))
+    dashboard_app.load_vision_model.clear()
+    model, _, _, _ = dashboard_app.load_vision_model()
+    assert model.checkpoint_provenance["verified"] is True
