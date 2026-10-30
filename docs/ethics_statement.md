@@ -99,6 +99,17 @@ segmentation as a preprocessing step to constrain where activation can
 occur) would be a natural next step before trusting this model's
 attention patterns further.
 
+**Update (October 2026):** a full-test-set audit has since been run on the
+patient-disjoint, deduplicated vision model (1,165 test images; see
+`docs/patient_disjoint_dedup_rho_experiment_report_v1.md`). Among the 897
+images with nonzero Grad-CAM maps, the mean fraction of positive activation
+inside the segmented lungs was 0.499 (SD 0.152), so roughly half of the
+activation falls outside the lungs on average. 268 images (23%) produced
+entirely empty maps, and a patch-deletion test showed Grad-CAM-ranked
+patches beating random patches only at small deletion fractions. These
+findings are consistent with the caution above: the explanations are
+diagnostic evidence, not proof of clinically correct reasoning.
+
 **Mitigation implemented and verified:** `src/explain/lung_segmentation.py` uses a
 pretrained chest X-ray segmentation model
 ([torchxrayvision](https://github.com/mlmed/torchxrayvision)) to constrain
@@ -109,8 +120,9 @@ the example-generation scripts. Re-running the two worst offenders above
 with this enabled confirms it works as intended: `example_406`'s
 near-total color saturation is now visibly clipped to the lung silhouette,
 and `example_269`'s activation no longer sits on the burned-in "R"
-marker/timestamp — see the before/after comparison in the main
-[`README.md`](../README.md#a-real-finding-manual-audit-caught-shortcut-learning).
+marker/timestamp — see the before/after images in
+[`gradcam_examples/`](gradcam_examples/) and
+[`gradcam_examples_lung_restricted/`](gradcam_examples_lung_restricted/).
 This constrains the *explanation* to anatomically valid regions — it does
 not fix the underlying shortcut-learning risk in the trained model itself
 (the model may still be using non-anatomical cues internally), but it does

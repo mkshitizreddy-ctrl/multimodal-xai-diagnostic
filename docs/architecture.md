@@ -142,7 +142,7 @@ belongs to.
   functional, not decorative — mono marks measured data, sans marks text
   written to be read.
 - **Study header:** a technical readout bar (model name, CBAM on/off,
-  checkpoint status, class count) in place of a generic app title, styled
+  checkpoint status and SHA-256 verification, class count) in place of a generic app title, styled
   like a PACS viewer's study metadata strip.
 - **Viewport framing:** every image the app shows (uploaded X-ray, Grad-CAM
   overlay, counterfactual comparison) renders through `render_viewport()`,
@@ -155,6 +155,7 @@ belongs to.
 - **Loss:** `BCEWithLogitsLoss` (binary — the codebase is written generically for multi-label, so the same training loop handles this single-class binary case without modification).
 - **Optimizer:** AdamW, cosine LR schedule, early stopping on validation macro AUROC.
 - **Splits:** patient-level train/val split (original test split preserved exactly as the dataset curators provided it — already patient-disjoint from train). Pneumonia-positive filenames encode a person ID we group by; normal-class images lack an equivalent ID and are conservatively treated as individually unique patients — see `docs/ethics_statement.md`.
+- **Latest experiment split:** the most recent experiments use a separate patient-disjoint, deduplicated split (32 exact duplicate image contents removed; 3,727 train / 932 validation / 1,165 test) built by `data/scripts/prepare_patient_disjoint_dedup_dataset.py`. Its configs are `configs/{vision,fusion}_patient_disjoint_dedup_rho_v1_<rho>.yaml`. Results from the original 624-image test split and from this split are not directly comparable.
 
 ## Attention-consistency training (experimental)
 
@@ -188,15 +189,14 @@ supervising. A more complete version of this idea would apply matching
 spatial transforms to image and mask together — left as future work, not
 built here.
 
-**Status: implemented and verified to run correctly end-to-end (real
-segmentation model, real training loop, checkpoint loads correctly in
-every existing script — evaluate.py, measure_lung_localization.py — with
-zero modification needed to any of them), using synthetic data. Not yet
-trained on the real dataset** — that requires real GPU time this project
-doesn't have access to in the environment this was built in. 13 new tests
-across `test_vision_model.py`, `test_attention_consistency_loss.py`, and
-`test_lung_mask_dataset.py` cover the pieces; see the README for the
-commands to actually run this and get a real result.
+**Status: implemented, tested, and trained.** It was first verified end-to-end
+with synthetic data, then trained on the real dataset at five seeds. Under
+consistent deterministic seeding it produced a reproducible AUROC cost
+(mean −0.032, p≈0.04) but no statistically significant localization gain
+(+0.063, p=0.196); an earlier mixed-seeding result that looked significant
+was superseded. See `CHANGELOG.md` (v0.13) and the research paper draft for
+the numbers. The pieces are covered by tests in `test_vision_model.py`,
+`test_attention_consistency_loss.py`, and `test_lung_mask_dataset.py`.
 
 ## Dataset history
 
@@ -210,3 +210,4 @@ This project originally targeted the full **NIH Chest X-ray14** dataset (14-clas
 | `configs/data_nih_legacy.yaml` | Original NIH Chest X-ray14 config, kept for reference |
 | `configs/vision_baseline.yaml` | Vision-only training hyperparameters |
 | `configs/fusion.yaml` | Fusion model training hyperparameters |
+| `configs/*_patient_disjoint_dedup_rho_v1_<rho>.yaml` | Latest experiment: per-rho vision and fusion configs with their own split CSVs, checkpoint, and log directories |

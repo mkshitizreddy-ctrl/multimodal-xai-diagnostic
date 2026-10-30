@@ -78,7 +78,8 @@ build phase they correspond to.
   — localization effect vanishes (mean diff ≈ 0.0003, p=0.995) while
   accuracy trends mildly *positive* (opposite direction from vision).
   CBAM's effect is architecture-dependent, not a property of the module
-  alone — see [Results](README.md#results).
+  alone. (The detailed results table that once lived in the README was removed in a later
+  rewrite; per-run CSVs are in `docs/` and the summary is in the research paper draft.)
 - `src/models/attention_consistency_loss.py` + `src/train_attention_consistency.py`:
   goes beyond CBAM by training the model's own spatial attention toward
   the segmented lung field directly (loss = `1 - lung_energy_fraction`),
@@ -119,7 +120,8 @@ build phase they correspond to.
   independent replicates). Properly replicated result: a non-significant
   trend toward better localization (+0.060 ± 0.076, p=0.31, n=3 seeds) and
   a non-significant trend toward slightly worse accuracy (−0.012 ± 0.014,
-  p=0.25) — see the [Results](README.md#results) section
+  p=0.25). The detailed results table was later removed from the README; see the per-run
+  CSVs in `docs/` and the research paper draft.
 
 ## v0.8 — Dataset pivot to Chest X-ray Pneumonia
 - Switched primary dataset from NIH Chest X-ray14 (~45GB, 14-class) to Kaggle
