@@ -7,6 +7,7 @@ Tags: `v1.0` and `v2.0` are earlier snapshots (August 2026). `v3.0` marks the st
 October 2026 patient-disjoint audit. The `v0.x` headings below are internal phase labels, not tags.
 
 ## [Unreleased]
+- Research: acquisition-only baselines (`src/explain/nonanatomical_baseline.py`, `baseline_discordance.py`). File size alone gives test AUROC 0.980 versus the CNN's 0.998; see `docs/nonanatomical_baseline_notes.md`.
 - Research: `docs/research_plan_2026-11.md` and the frozen-model shortcut audit (`src/explain/shortcut_audit.py`,
   torch-free helpers in `shortcut_audit_utils.py`, 12 tests). Results will be added after the GPU run.
 - Research: `docs/related_work_notes.md` (five verified related works) and matching `references.bib` entries.
