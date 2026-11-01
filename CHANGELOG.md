@@ -9,6 +9,7 @@ October 2026 patient-disjoint audit. The `v0.x` headings below are internal phas
 ## [Unreleased]
 - Research: `docs/research_plan_2026-11.md` and the frozen-model shortcut audit (`src/explain/shortcut_audit.py`,
   torch-free helpers in `shortcut_audit_utils.py`, 12 tests). Results will be added after the GPU run.
+- Research: `docs/related_work_notes.md` (five verified related works) and matching `references.bib` entries.
 - Documented why Grad-CAM maps are blank: all 268 zero maps have pneumonia probability <= 0.134, because the
   single Pneumonia output has no positive evidence; clarified the dashboard notice.
 - Dashboard now states the model's call at the 0.5 threshold (for example "1.5%, below 0.5: model predicts Normal") instead
