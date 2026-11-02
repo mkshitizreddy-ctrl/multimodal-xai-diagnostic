@@ -12,9 +12,9 @@ Classifiers that never see lung detail recover the label almost as well as the C
 |---|---|
 | File size (KB) alone, one feature | 0.980 [0.972, 0.988] |
 | Width, height, aspect | 0.916 [0.901, 0.932] |
-| Mean and SD of pixel intensity | 0.747 [0.717, 0.776] |
+| Mean and SD of pixel intensity | 0.749 [0.718, 0.778] |
 | 16x16 grey thumbnail (256 values) | 0.977 [0.968, 0.985] |
-| Size, file size and intensity statistics (18 features) | 0.986 [0.978, 0.993] |
+| Size, file size and intensity statistics (18 features) | 0.986 [0.979, 0.992] |
 | CNN (DenseNet-121 + CBAM, vision only) | 0.998 |
 
 The CNN is still better than every baseline (paired bootstrap difference excludes 0; smallest gap 0.012,
@@ -48,7 +48,7 @@ images contains both classes, so stratifying on image size is not possible.
 - CNN false positives (Normal called Pneumonia) have a median file size of 121 KB versus 495 KB for Normal
   overall; false negatives have 138 KB versus 71 KB for Pneumonia overall.
 - Within class, the CNN logit correlates weakly with the file-size score (Spearman +0.17 Pneumonia,
-  +0.27 Normal).
+  +0.27 Normal; +0.28 and +0.36 for the 18-feature model).
 - Even where file size misleads, CNN AUROC stays at 0.92, so the model is not simply reading the cue.
 
 This is correlational: atypical images could be hard for both the baseline and the CNN. It makes partial
@@ -61,7 +61,4 @@ the same train split as the CNN, 55 discordant images (wide CIs), no causal inte
 
 ## Next experiment
 
-Causal test on the frozen CNN: add controlled perturbations that change the cues the CNN can still see
-(recompress to a common JPEG quality, equalise histograms, pad to a common aspect ratio before resizing) and
-measure AUROC and the discordant-subset error rate. Decision rule: a large drop on the discordant subset
-that the original images do not show supports reliance; no change supports the CNN being robust to these cues.
+Done: see `docs/cue_perturbation_notes.md`.

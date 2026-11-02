@@ -1,0 +1,5 @@
+{
+  "seed": 42,
+  "split_dir": "data/processed_patient_disjoint_dedup_rho_v1_0",
+  "n_test": 1165
+}

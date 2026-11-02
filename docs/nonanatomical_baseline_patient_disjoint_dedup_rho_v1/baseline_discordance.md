@@ -5,7 +5,7 @@ Within-class Spearman correlation between the CNN logit and each baseline's scor
 | Baseline | Pneumonia (n) | rho | Normal (n) | rho |
 |---|---|---|---|---|
 | file_size_only | 849 | +0.169 | 316 | +0.267 |
-| size_meta+intensity | 849 | +0.258 | 316 | +0.282 |
+| size_meta+intensity | 849 | +0.278 | 316 | +0.355 |
 
 File-size baseline at the validation Youden threshold (0.71): accuracy 0.953, 55 errors (FN 20, FP 35).
 
