@@ -7,6 +7,7 @@ Tags: `v1.0` and `v2.0` are earlier snapshots (August 2026). `v3.0` marks the st
 October 2026 patient-disjoint audit. The `v0.x` headings below are internal phase labels, not tags.
 
 ## [Unreleased]
+- Research: mask QC and Grad-CAM lung-fraction link (`src/explain/explanation_link.py`); lung fraction tracks the drop when lungs are grayed (partial rho -0.63, mask area controlled), about +0.20 beyond a displaced-mask control; see `docs/explanation_link_notes.md`.
 - Research: acquisition-cue perturbation test (`src/explain/cue_perturbation.py`). JPEG recompression and texture removal leave CNN AUROC at 0.998; contrast equalisation and square padding lower it by 0.007, and padding shifts the threshold; see `docs/cue_perturbation_notes.md`.
 - Research: acquisition-only baselines (`src/explain/nonanatomical_baseline.py`, `baseline_discordance.py`). File size alone gives test AUROC 0.980 versus the CNN's 0.998; see `docs/nonanatomical_baseline_notes.md`.
 - Research: `docs/research_plan_2026-11.md` and the frozen-model shortcut audit (`src/explain/shortcut_audit.py`,
