@@ -7,6 +7,7 @@ is mid-gray, matching the fill used by evaluate_gradcam_faithfulness.py.
 
 import numpy as np
 import pandas as pd
+from scipy import ndimage
 from scipy.stats import rankdata
 
 GRAY = 0.0
@@ -41,6 +42,19 @@ def blank_border(image: np.ndarray, frac: float, fill: float = GRAY) -> np.ndarr
 
 def mask_area_fraction(mask: np.ndarray) -> float:
     return float((np.asarray(mask) > 0.5).mean())
+
+
+def dilate_mask(mask: np.ndarray, pixels: float) -> np.ndarray:
+    """Grow a binary mask by `pixels` (Euclidean distance, in mask pixels).
+
+    Used to cover under-segmented lung edges: any pixel within `pixels` of the mask joins it.
+    `pixels` <= 0 returns the mask unchanged.
+    """
+    base = np.asarray(mask) > 0.5
+    if pixels <= 0:
+        return base.astype(np.float32)
+    distance = ndimage.distance_transform_edt(~base)
+    return (distance <= pixels).astype(np.float32)
 
 
 def displace_mask(

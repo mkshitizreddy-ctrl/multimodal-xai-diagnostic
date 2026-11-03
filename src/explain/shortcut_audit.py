@@ -32,6 +32,7 @@ from src.explain.lung_segmentation import get_lung_mask
 from src.explain.shortcut_audit_utils import (
     CONDITIONS,
     audit_image,
+    dilate_mask,
     mask_area_fraction,
     summarize,
     summary_markdown,
@@ -131,10 +132,25 @@ def main():
     parser.add_argument("--max-mask-area", type=float, default=0.70)
     parser.add_argument("--qc-count", type=int, default=24)
     parser.add_argument("--recompute-masks", action="store_true")
+    parser.add_argument(
+        "--mask-dilation",
+        type=float,
+        default=0.0,
+        help="Grow every lung mask by this many pixels (at model resolution) after loading; "
+        "0 keeps the original masks.",
+    )
+    parser.add_argument(
+        "--masks-path",
+        default=None,
+        help="Cached lung_masks.npz to reuse (default: <output-dir>/lung_masks.npz). Point a dilated "
+        "run at the original cache to avoid re-segmenting.",
+    )
     args = parser.parse_args()
 
     if args.limit < 0 or args.control_repeats < 1:
         parser.error("--limit must be >= 0 and --control-repeats must be positive")
+    if args.mask_dilation < 0:
+        parser.error("--mask-dilation must be >= 0")
     if args.bootstrap_replicates < 100:
         parser.error("--bootstrap-replicates must be at least 100")
 
@@ -172,9 +188,13 @@ def main():
     print(f"Test CSV: {args.test_csv}")
     print(f"Evaluating {n}/{len(dataset)} images; {args.control_repeats} displaced-mask repeats")
 
+    masks_path = Path(args.masks_path) if args.masks_path else out_dir / "lung_masks.npz"
     masks = load_or_compute_masks(
-        out_dir / "lung_masks.npz", dataset, n, size, args.lung_threshold, args.recompute_masks
+        masks_path, dataset, n, size, args.lung_threshold, args.recompute_masks
     )
+    if args.mask_dilation > 0:
+        masks = np.stack([dilate_mask(m, args.mask_dilation) for m in masks])
+        print(f"Dilated every lung mask by {args.mask_dilation:g} px")
     qc_rng = np.random.default_rng(args.seed)
     qc_indices = qc_rng.choice(n, size=min(args.qc_count, n), replace=False)
     save_qc_grid(dataset, masks, qc_indices, out_dir / "qc_lung_masks.png")
@@ -236,12 +256,15 @@ def main():
         "seed": args.seed,
         "border_frac": args.border_frac,
         "lung_threshold": args.lung_threshold,
+        "mask_dilation_px": args.mask_dilation,
         "conditions": CONDITIONS,
         "torch": torch.__version__,
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
     }
     (out_dir / "run_info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
     markdown = summary_markdown(summary, info)
+    if args.mask_dilation > 0:
+        markdown = f"> Lung masks dilated by {args.mask_dilation:g} px (model resolution).\n\n" + markdown
     (out_dir / "shortcut_audit_summary.md").write_text(markdown, encoding="utf-8")
 
     print()

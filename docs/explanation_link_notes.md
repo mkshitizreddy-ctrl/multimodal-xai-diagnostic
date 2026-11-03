@@ -30,7 +30,8 @@ Run 2026-11-02 on the frozen vision checkpoint, patient-disjoint deduplicated te
 - Exploratory, not scripted: on the 291 images with the smallest masks (likely under-segmented),
   gray-the-lungs AUROC is 0.993 versus 0.968 on the other 874, and within Pneumonia a smaller mask goes with a
   higher gray-the-lungs logit (Spearman -0.18). Consistent with lung remnants leaking into "background";
-  small masks could also just be small chests.
+  small masks could also just be small chests. The later dilation run (`mask_dilation_notes.md`) did not
+  support this as the main explanation.
 - Sensitivity and specificity are not comparable across conditions: the gray fill pushes outputs toward
   Pneumonia. Use AUROC.
 
@@ -69,4 +70,4 @@ comes from the rho=0 run; its probabilities match the audit's to within 0.0011.
 
 The model uses lung content but is not lung-exclusive, and Grad-CAM lung fraction only partly reflects the
 intervention results. Lung-aware training (Step 4) is justified as a test, not as a fix for a proven shortcut.
-Before it, repair or dilate the masks and check whether the gray-the-lungs result shrinks.
+The dilation check is done (`mask_dilation_notes.md`): the gray-the-lungs result barely shrinks.
