@@ -1,0 +1,23 @@
+{
+  "checkpoint": "checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth",
+  "checkpoint_sha256": "b622f8c91b43f39b4e89b34b680eaeba9ab65c99591dde0dd91d35436027abd7",
+  "test_csv": "data/processed_patient_disjoint_dedup_rho_v1_0/test.csv",
+  "n_images": 1165,
+  "n_pneumonia": 849,
+  "mask_dilation_px": 8.0,
+  "lung_threshold": 0.3,
+  "conditions": [
+    "original",
+    "thorax_only",
+    "outside_thorax_only",
+    "outside_thorax_no_margin",
+    "margin_only_10",
+    "center_only_60",
+    "margin_only_20",
+    "center_only_80"
+  ],
+  "seed": 42,
+  "bootstrap_replicates": 2000,
+  "torch": "2.9.1+cu128",
+  "device": "NVIDIA GeForce RTX 4060 Laptop GPU"
+}
