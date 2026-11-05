@@ -62,6 +62,15 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         tabular_stats=tabular_stats,
     )
 
+    # Optional lung-aware training (see src/data/lung_masking.py): gray out everything
+    # outside the dilated lung mask, always or at random. Absent by default.
+    masking_cfg = train_cfg["data"].get("lung_masking")
+    if masking_cfg:
+        from src.data.lung_masking import wrap_with_lung_masking
+
+        train_ds = wrap_with_lung_masking(train_ds, masking_cfg, "train", image_size)
+        val_ds = wrap_with_lung_masking(val_ds, masking_cfg, "val", image_size)
+
     # pin_memory speeds up host->GPU transfer, but is known to cause silent
     # access-violation crashes on some Windows + CUDA driver combinations
     # (no Python traceback, just an immediate process exit). Configurable

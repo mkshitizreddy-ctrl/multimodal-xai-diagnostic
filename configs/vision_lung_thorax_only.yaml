@@ -1,0 +1,36 @@
+# Lung-aware training: every image is shown with everything outside the 8 px-dilated lung mask grayed (train and validation).
+# Same split and hyperparameters as vision_patient_disjoint_dedup_rho_v1_0.yaml.
+checkpoint:
+  dir: checkpoints/vision_lung_thorax_only
+  monitor_metric: val_macro_auroc
+  save_best_only: true
+data:
+  image_dir: data/raw/images
+  image_size: 224
+  train_csv: data/processed_patient_disjoint_dedup_rho_v1_0/train.csv
+  val_csv: data/processed_patient_disjoint_dedup_rho_v1_0/val.csv
+  test_csv: data/processed_patient_disjoint_dedup_rho_v1_0/test.csv
+  lung_masking:
+    mode: thorax_only
+    dilation_px: 8
+    threshold: 0.3
+    masks_dir: data/lung_masks
+logging:
+  log_dir: logs/vision_lung_thorax_only
+  log_every_n_steps: 50
+model:
+  dropout: 0.2
+  name: densenet121
+  pretrained: true
+  use_cbam: true
+train:
+  batch_size: 32
+  early_stopping_patience: 4
+  epochs: 15
+  lr: 0.0001
+  lr_scheduler: cosine
+  num_workers: 4
+  optimizer: adamw
+  pin_memory: false
+  seed: 42
+  weight_decay: 1.0e-05
