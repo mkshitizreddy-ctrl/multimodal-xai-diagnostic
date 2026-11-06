@@ -36,9 +36,9 @@ so sensitivity and specificity are not comparable across rows; compare AUROC.
 
 ## What the numbers show
 
-- A model that sees only the dilated thorax matches the full-image model. The thorax-only models reach
-  0.9975 on masked test images; the baseline reaches 0.9973 on full images. The label is therefore
-  learnable from the thorax region at no cost in test AUROC on this dataset.
+- A model that sees only the dilated thorax matches the full-image model on test AUROC. The thorax-only
+  models reach 0.9975 on masked test images; the baseline reaches 0.9973 on full images. This does not show
+  that the thorax-only models read lung tissue: see the silhouette result below.
 - Random-background training makes the model read the thorax as well as the full image (0.9972 versus
   0.9879 for the baseline on thorax-only input) but does not remove the outside-thorax signal: outside-thorax
   AUROC is 0.957 versus 0.967, and the margin-only AUROC is 0.936 versus 0.942, both within seed spread.
@@ -49,15 +49,46 @@ so sensitivity and specificity are not comparable across rows; compare AUROC.
 - The `outside_thorax_no_margin` condition (16% of the image) stays near 0.85 to 0.89 for all three
   variants, including thorax-only models that never saw that region populated. This is not explained here.
 
+## Silhouette baseline: the mask outline predicts the label
+
+A thorax-only model sees the lungs through a gray cut-out. Classifiers that see only the cut-out's shape,
+with no pixel intensities, reach (test AUROC, `src/explain/silhouette_baseline.py`,
+`docs/silhouette_baseline_patient_disjoint_dedup_rho_v1/`):
+
+| Mask dilation | Area only | Geometry (11 features) | Row/column profiles | 16x16 thumbnail |
+|---|---|---|---|---|
+| 0 px | 0.611 | 0.890 | 0.934 | 0.946 [0.932, 0.959] |
+| 8 px (as in training) | 0.637 | 0.883 | 0.922 | 0.938 [0.923, 0.952] |
+
+The outline therefore carries a strong label signal (0.94) although mask area alone does not (0.61).
+Medians: mask area (0 px) 0.364 for Normal, 0.393 for Pneumonia.
+
+Aspect ratio explains part of this. Images are resized to a square, so the original width/height changes
+the lungs' apparent shape; the median aspect ratio is 1.236 for Normal and 1.484 for Pneumonia
+(`src/explain/silhouette_aspect_check.py`, 0 px, test split):
+
+| Features | Test AUROC |
+|---|---|
+| aspect ratio only | 0.844 |
+| original width, height, aspect | 0.916 |
+| silhouette thumbnail | 0.946 |
+| silhouette thumbnail + aspect | 0.956 |
+
+Inside aspect-ratio quintiles the silhouette classifier still reaches AUROC 0.81 to 0.96 (the two
+highest-aspect bins hold only 16 and 6 Normal images, so those values are noisy). The within-class
+correlation of its score with aspect ratio is about +0.3. So the outline carries label information beyond
+aspect ratio, whose source (zoom, positioning, acquisition or anatomy) is not identified.
+
+Consequence for the thorax-only result: its 0.9975 AUROC and its near-flat results on the outside-thorax
+conditions cannot be attributed to lung tissue. The silhouette alone reaches 0.94, and the same cut-out
+is visible in the outside-thorax inputs, so it may explain part of the residual 0.74 to 0.89 there. Both
+claims are untested for the CNN: a silhouette-only baseline reaching 0.94 does not show the CNN uses it.
+
 ## What it does not show
 
 - Thorax-only models are out of distribution on unmasked images, which is why their `original` AUROC is
   lower (0.973) and has high seed variance. That is not a defect of the models; it only says they were
   not trained for full images.
-- A thorax-only model can still use the mask silhouette. The mask outline, its area and position reflect
-  how the radiograph was framed, which may correlate with the label. The outside-thorax inputs also keep
-  the gray silhouette of the lungs, which could explain part of the residual AUROC. A silhouette-only
-  baseline has not been run yet.
 - The masks come from an automatic segmenter trained on adult radiographs; they were checked on a sample
   (`qc_lung_masks.png`) but not against expert annotation.
 - Image-level bootstrap intervals ignore patient clustering. One dataset, one architecture, three seeds.
@@ -65,6 +96,9 @@ so sensitivity and specificity are not comparable across rows; compare AUROC.
 
 ## Next checks
 
-1. Silhouette baseline: classify the label from mask area, bounding box and row/column profiles alone.
+1. Remove the silhouette as a cue and retrain: a fixed central box (the same for every image, 3 seeds),
+   or masks drawn from a different image of the same dilation, so the outline carries no per-image
+   information. Compare test AUROC with the thorax-only models' 0.9975.
 2. Run the frozen-model audit and the cue-perturbation test on the lung-aware checkpoints.
-3. Test-set performance of the thorax-only model with a different dilation (0 and 16 px).
+3. Aspect-preserving resizing (pad to square before the model) to see how much of the silhouette signal
+   disappears.
