@@ -7,6 +7,7 @@ Tags: `v1.0` and `v2.0` are earlier snapshots (August 2026). `v3.0` marks the st
 October 2026 patient-disjoint audit. The `v0.x` headings below are internal phase labels, not tags.
 
 ## [Unreleased]
+- Research: lung-aware training (`src/data/lung_masking.py`, `configs/vision_lung_*.yaml`, `src/explain/lung_aware_eval.py`). Training on thorax-only images matches the full-image model (test AUROC 0.9975 versus 0.9973, 3 seeds) and cuts outside-thorax AUROC to 0.74; random-background training leaves it at 0.96; see `docs/lung_aware_notes.md`.
 - Research: region probe (`src/explain/region_probe.py`). The outer 10% frame alone gives AUROC 0.934 and the outside-thorax region 0.964, so the signal is redundant across regions; see `docs/region_probe_notes.md`.
 - Research: `--mask-dilation` / `--masks-path` for the shortcut audit and the dilation run (4 and 8 px). With masks covering about half the image the model still reaches AUROC 0.964 without them, so mask defects do not explain the non-lung signal; see `docs/mask_dilation_notes.md`.
 - Research: mask QC and Grad-CAM lung-fraction link (`src/explain/explanation_link.py`); lung fraction tracks the drop when lungs are grayed (partial rho -0.63, mask area controlled), about +0.20 beyond a displaced-mask control; see `docs/explanation_link_notes.md`.
