@@ -79,10 +79,36 @@ highest-aspect bins hold only 16 and 6 Normal images, so those values are noisy)
 correlation of its score with aspect ratio is about +0.3. So the outline carries label information beyond
 aspect ratio, whose source (zoom, positioning, acquisition or anatomy) is not identified.
 
-Consequence for the thorax-only result: its 0.9975 AUROC and its near-flat results on the outside-thorax
-conditions cannot be attributed to lung tissue. The silhouette alone reaches 0.94, and the same cut-out
-is visible in the outside-thorax inputs, so it may explain part of the residual 0.74 to 0.89 there. Both
-claims are untested for the CNN: a silhouette-only baseline reaching 0.94 does not show the CNN uses it.
+Consequence for the thorax-only result: its 0.9975 AUROC could in principle come partly from the outline,
+because the silhouette alone reaches 0.94. The outline control below tests this.
+
+## Outline control: a fixed box that carries no outline
+
+`fixed_box` models were trained and validated on images where every image shows only the same centred
+box (72% of each side, area 0.52, matching the mean thorax mask) and the rest is gray. The cut-out is
+identical for all images, so it carries no per-image information. Best validation AUROC was 0.9953,
+0.9960 and 0.9967 (seeds 42, 123, 2024). Test AUROC, mean ± SD over 3 seeds
+(`src/explain/outline_control_eval.py`, `docs/outline_control/`):
+
+| Input shown | baseline | random_background | thorax_only | fixed_box |
+|---|---|---|---|---|
+| original | 0.9973 ± 0.0011 | 0.9974 ± 0.0005 | 0.9733 ± 0.0157 | 0.9937 ± 0.0006 |
+| dilated thorax only | 0.9879 ± 0.0030 | 0.9972 ± 0.0004 | 0.9975 ± 0.0009 | 0.9949 ± 0.0014 |
+| fixed box only | 0.9933 ± 0.0019 | 0.9956 ± 0.0016 | 0.9944 ± 0.0019 | 0.9965 ± 0.0012 |
+| outside the fixed box | 0.9578 ± 0.0070 | 0.9445 ± 0.0245 | 0.7132 ± 0.0550 | 0.8107 ± 0.0347 |
+
+- The fixed-box models reach 0.9965 on their own input, level with the thorax-only models on theirs
+  (0.9975) and with the baseline on full images (0.9973). A per-image lung outline is therefore not
+  needed for this AUROC: the image content inside a central box is enough.
+- The baseline already reads the fixed box well (0.9933), and every variant reads the box and the thorax
+  at 0.988 to 0.998. Together with the region probe, the signal is redundant across the thorax, the
+  central box, the outside-thorax region and the margin; no single region is necessary.
+- The silhouette does not explain the residual outside signal. Both restricted-view variants never saw
+  the outside region populated, yet the fixed-box models reach 0.81 on it (the cut-out is the same for
+  every image) against 0.71 for the thorax-only models. This is a model-output observation, not an
+  explanation.
+- The thorax-only and fixed-box models differ by 0.001 on their own inputs, inside seed spread, so this
+  experiment cannot say whether the thorax-only models use the outline at all.
 
 ## What it does not show
 
@@ -94,11 +120,16 @@ claims are untested for the CNN: a silhouette-only baseline reaching 0.94 does n
 - Image-level bootstrap intervals ignore patient clustering. One dataset, one architecture, three seeds.
   Nothing here establishes clinical validity or shows which image evidence a clinician would use.
 
+## Summary
+
+On this split, test AUROC of about 0.997 is reproduced from the dilated thorax alone, from a fixed central
+box alone, and (at 0.96) from the outside-thorax region alone. A per-image outline is not required, and no
+single image region or cue is necessary. The 0.998 AUROC therefore says little about which evidence the
+model uses. It does not show that any of these models reads lung pathology, and it does not support a
+claim of clinical validity.
+
 ## Next checks
 
-1. Remove the silhouette as a cue and retrain: a fixed central box (the same for every image, 3 seeds),
-   or masks drawn from a different image of the same dilation, so the outline carries no per-image
-   information. Compare test AUROC with the thorax-only models' 0.9975.
-2. Run the frozen-model audit and the cue-perturbation test on the lung-aware checkpoints.
-3. Aspect-preserving resizing (pad to square before the model) to see how much of the silhouette signal
-   disappears.
+1. Run the frozen-model audit and the cue-perturbation test on the lung-aware checkpoints (optional).
+2. Aspect-preserving resizing (pad to square before the model) to see how much of the silhouette and
+   acquisition signal disappears.
