@@ -1,0 +1,5 @@
+{
+  "box_fraction": 0.72,
+  "mask_dilation_px": 8.0,
+  "missing": []
+}

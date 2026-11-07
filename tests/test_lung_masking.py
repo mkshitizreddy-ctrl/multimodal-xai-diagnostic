@@ -151,3 +151,21 @@ def test_masked_dataset_pickles_small_and_round_trips(tmp_path):
     assert all(np.array_equal(dataset.mask_at(i), masks[i]) for i in range(len(masks)))
     assert dataset.packed.nbytes * 8 <= masks.size + 8 * len(masks)
     assert len(pickle.dumps(dataset)) < 200_000  # workers receive the dataset by pickling on Windows
+
+
+def test_fixed_box_is_identical_for_every_image_and_needs_no_mask_file(tmp_path):
+    from src.data.lung_masking import centered_box
+
+    csv, _names, _masks = _make_split(tmp_path, n=4)
+    box = centered_box(SIZE, 0.5)
+    assert box.sum() == 16 * 16 and box[8:24, 8:24].all() and not box[0].any()
+    with pytest.raises(ValueError):
+        centered_box(SIZE, 1.0)
+    cfg = {"mode": "fixed_box", "box_fraction": 0.5}
+    for split in ("train", "val"):
+        dataset = wrap_with_lung_masking(_base(csv, tmp_path), cfg, split, SIZE)  # no masks_dir needed
+        assert isinstance(dataset, LungMaskedDataset) and dataset.shared
+        assert np.array_equal(dataset.mask_at(0), box) and np.array_equal(dataset.mask_at(3), box)
+        image, _tab, _label = dataset[2]
+        assert np.allclose(image[:, 0, 0].numpy(), GRAY_NORMALISED, atol=1e-5)
+        assert not np.allclose(image[:, 16, 16].numpy(), GRAY_NORMALISED, atol=1e-3)
