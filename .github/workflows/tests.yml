@@ -41,6 +41,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Cache torchxrayvision weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.torchxrayvision
+          key: torchxrayvision-pspnet-v1
+
       - name: Run tests
         run: |
           python -m pytest tests/ -v

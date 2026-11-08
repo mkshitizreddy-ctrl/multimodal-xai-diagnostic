@@ -9,17 +9,34 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.explain.gradcam import ChestXrayExplainer
-from src.explain.lung_segmentation import get_lung_mask
+from src.explain.lung_segmentation import WEIGHTS_FILENAME, _discard_corrupt_weights, get_lung_mask
 from src.models.vision_encoder import ChestXrayVisionModel
 
 NUM_CLASSES = 14
 
 
+def test_discard_corrupt_weights_removes_only_tiny_files(tmp_path, monkeypatch):
+    import torchxrayvision as xrv
+
+    monkeypatch.setattr(xrv.utils, "get_cache_dir", lambda: str(tmp_path))
+    weights = tmp_path / WEIGHTS_FILENAME
+
+    assert _discard_corrupt_weights() is False  # nothing cached yet
+
+    weights.write_text("<html><body><h1>504 Gateway Time-out</h1></body></html>")
+    assert _discard_corrupt_weights() is True and not weights.exists()
+
+    weights.write_bytes(b"\0" * 2_000_000)  # plausible size: left alone
+    assert _discard_corrupt_weights() is False and weights.exists()
+
+
+@pytest.mark.usefixtures("segmentation_weights")
 def test_get_lung_mask_returns_correct_shape_and_dtype():
     image = torch.randn(3, 224, 224) * 0.3
     mask = get_lung_mask(image, output_size=224)
@@ -29,6 +46,7 @@ def test_get_lung_mask_returns_correct_shape_and_dtype():
     assert set(np.unique(mask)).issubset({0.0, 1.0})
 
 
+@pytest.mark.usefixtures("segmentation_weights")
 def test_get_lung_mask_resizes_to_requested_output_size():
     image = torch.randn(3, 224, 224) * 0.3
     mask = get_lung_mask(image, output_size=64)
@@ -51,6 +69,7 @@ def test_explain_without_lung_restriction_is_unaffected():
     assert np.allclose(heatmap_a, heatmap_b)
 
 
+@pytest.mark.usefixtures("segmentation_weights")
 def test_explain_with_lung_restriction_zeroes_activation_outside_mask():
     model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False)
     explainer = ChestXrayExplainer(model, device="cpu")
@@ -64,6 +83,7 @@ def test_explain_with_lung_restriction_zeroes_activation_outside_mask():
     assert overlay.shape == (224, 224, 3)
 
 
+@pytest.mark.usefixtures("segmentation_weights")
 def test_explain_top_k_passes_restrict_to_lungs_through():
     model = ChestXrayVisionModel(num_classes=NUM_CLASSES, pretrained=False)
     explainer = ChestXrayExplainer(model, device="cpu")

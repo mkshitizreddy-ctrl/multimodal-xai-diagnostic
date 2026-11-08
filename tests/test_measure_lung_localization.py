@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -60,6 +61,7 @@ def test_is_fusion_checkpoint_false_for_vision_only():
     assert is_fusion_checkpoint(vision_checkpoint) is False
 
 
+@pytest.mark.usefixtures("segmentation_weights")
 def test_end_to_end_fusion_checkpoint_runs_via_actual_script(tmp_path):
     """Builds a real (tiny, untrained) fusion checkpoint + synthetic
     dataset from scratch and invokes measure_lung_localization.py exactly

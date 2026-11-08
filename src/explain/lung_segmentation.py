@@ -11,6 +11,7 @@ X-rays to output per-pixel probabilities for 14 anatomical structures,
 including left/right lung.
 """
 
+import os
 from functools import lru_cache
 
 import numpy as np
@@ -20,6 +21,24 @@ import torch.nn.functional as F
 SEGMENTATION_INPUT_SIZE = 512  # torchxrayvision's PSPNet expects 512x512 input
 NORM_MEAN = 0.5
 NORM_STD = 0.25
+WEIGHTS_FILENAME = "pspnet_chestxray_best_model_4.pth"
+MIN_WEIGHTS_BYTES = 1_000_000  # the real file is ~100 MB; a failed download leaves a tiny HTML error page
+
+
+def _discard_corrupt_weights() -> bool:
+    """Delete a cached weights file that is clearly not a model.
+
+    torchxrayvision writes whatever the server returned into its cache, so a download that hits a
+    gateway timeout leaves a small HTML page that makes every later load fail with
+    "Unsupported operand 60". Removing it lets the next call download the weights again.
+    """
+    import torchxrayvision as xrv
+
+    path = os.path.expanduser(os.path.join(xrv.utils.get_cache_dir(), WEIGHTS_FILENAME))
+    if os.path.isfile(path) and os.path.getsize(path) < MIN_WEIGHTS_BYTES:
+        os.remove(path)
+        return True
+    return False
 
 
 @lru_cache(maxsize=1)
@@ -28,7 +47,12 @@ def _load_segmentation_model():
     on first use, then reused for every subsequent call in the process."""
     import torchxrayvision as xrv
 
-    model = xrv.baseline_models.chestx_det.PSPNet()
+    _discard_corrupt_weights()
+    try:
+        model = xrv.baseline_models.chestx_det.PSPNet()
+    except Exception:
+        _discard_corrupt_weights()  # do not leave a broken download behind for the next attempt
+        raise
     model.eval()
     return model
 
