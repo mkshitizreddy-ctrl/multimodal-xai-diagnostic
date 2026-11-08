@@ -65,6 +65,7 @@ def run_evaluation(checkpoint_path: str, data_cfg: dict, train_cfg: dict) -> pd.
         image_size=train_cfg["data"]["image_size"],
         train=False,
         tabular_stats=tabular_stats,
+        resize_mode=train_cfg["data"].get("resize_mode", "stretch"),
     )
     test_loader = DataLoader(
         test_ds, batch_size=train_cfg["train"]["batch_size"], shuffle=False

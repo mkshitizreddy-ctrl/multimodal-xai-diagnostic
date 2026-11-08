@@ -230,6 +230,7 @@ def main() -> None:
         image_size=train_config["data"]["image_size"],
         train=False,
         tabular_stats=checkpoint.get("tabular_stats"),
+        resize_mode=train_config["data"].get("resize_mode", "stretch"),
     )
     test_loader = DataLoader(
         test_dataset, batch_size=train_config["train"]["batch_size"], shuffle=False, num_workers=0
@@ -244,6 +245,7 @@ def main() -> None:
             image_size=train_config["data"]["image_size"],
             train=False,
             tabular_stats=checkpoint.get("tabular_stats"),
+            resize_mode=train_config["data"].get("resize_mode", "stretch"),
         )
         validation_loader = DataLoader(
             validation_dataset,

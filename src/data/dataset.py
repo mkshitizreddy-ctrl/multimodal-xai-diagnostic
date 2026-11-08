@@ -16,6 +16,32 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+RESIZE_MODES = ("stretch", "pad", "center_crop")
+PAD_FILL = 128  # mid-gray, i.e. 0.0 after normalisation (same fill as lung_masking.GRAY_PIXEL)
+
+
+def to_square(image: Image.Image, resize_mode: str) -> Image.Image:
+    """Make a PIL image square without stretching it (``pad``) or by cropping (``center_crop``).
+
+    ``stretch`` is handled by ``transforms.Resize((s, s))`` and leaves the image unchanged here.
+    ``pad`` keeps the whole image and adds mid-gray bands; the band width still encodes the original
+    aspect ratio. ``center_crop`` removes that cue but discards the sides (or top and bottom).
+    """
+    if resize_mode == "stretch":
+        return image
+    width, height = image.size
+    if resize_mode == "pad":
+        side = max(width, height)
+        canvas = Image.new("RGB", (side, side), (PAD_FILL,) * 3)
+        canvas.paste(image, ((side - width) // 2, (side - height) // 2))
+        return canvas
+    if resize_mode == "center_crop":
+        side = min(width, height)
+        left, top = (width - side) // 2, (height - side) // 2
+        return image.crop((left, top, left + side, top + side))
+    raise ValueError(f"resize_mode must be one of {RESIZE_MODES}, got {resize_mode!r}")
+
+
 # pandas >= 3.0 defaults to pyarrow-backed string columns in read_csv(), which
 # has been observed to cause a silent access-violation crash in pyarrow's
 # arrow.dll on some Windows setups (no Python traceback — the process just
@@ -39,9 +65,13 @@ class ChestXrayDataset(Dataset):
         train: bool = False,
         tabular_stats: dict | None = None,
         augmentation: dict | None = None,
+        resize_mode: str = "stretch",
     ):
         """
         Args:
+            resize_mode: ``stretch`` (default, original behaviour), ``pad`` (aspect-preserving,
+                gray bands) or ``center_crop`` (square crop of the shorter side). Models must be
+                evaluated with the mode they were trained with.
             tabular_stats: previously-fitted normalization stats (from
                 get_tabular_stats() on another split — normally the train
                 split). When provided, this dataset REUSES those stats
@@ -53,11 +83,14 @@ class ChestXrayDataset(Dataset):
                 val/test — see src/train.py's build_dataloaders() and
                 src/evaluate.py for the reference usage pattern.
         """
+        if resize_mode not in RESIZE_MODES:
+            raise ValueError(f"resize_mode must be one of {RESIZE_MODES}, got {resize_mode!r}")
         self.df = pd.read_csv(csv_path).reset_index(drop=True)
         self.image_dir = Path(image_dir)
         self.classes = classes
         self.tabular_features = tabular_features
         self.train = train
+        self.resize_mode = resize_mode
 
         if tabular_stats is not None:
             self._load_tabular_stats(tabular_stats)
@@ -145,7 +178,7 @@ class ChestXrayDataset(Dataset):
 
         image_path = self.image_dir / row["Image Index"]
         image = Image.open(image_path).convert("RGB")
-        image = self.transform(image)
+        image = self.transform(to_square(image, self.resize_mode))
 
         tabular = self._encode_tabular(row)
 

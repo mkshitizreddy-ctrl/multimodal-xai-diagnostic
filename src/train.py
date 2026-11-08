@@ -43,6 +43,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         image_size=image_size,
         train=True,
         augmentation=train_cfg["data"].get("augmentation"),
+        resize_mode=train_cfg["data"].get("resize_mode", "stretch"),
     )
 
     # Fit normalization stats and the categorical vocab ONCE on train, and
@@ -60,6 +61,7 @@ def build_dataloaders(data_cfg: dict, train_cfg: dict):
         image_size=image_size,
         train=False,
         tabular_stats=tabular_stats,
+        resize_mode=train_cfg["data"].get("resize_mode", "stretch"),
     )
 
     # Optional lung-aware training (see src/data/lung_masking.py): gray out everything

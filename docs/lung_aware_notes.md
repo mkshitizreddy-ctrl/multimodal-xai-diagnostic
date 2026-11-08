@@ -131,5 +131,10 @@ claim of clinical validity.
 ## Next checks
 
 1. Run the frozen-model audit and the cue-perturbation test on the lung-aware checkpoints (optional).
-2. Aspect-preserving resizing (pad to square before the model) to see how much of the silhouette and
-   acquisition signal disappears.
+2. Aspect-preserving resizing. Code and configs are in place (`data.resize_mode: pad` or `center_crop`),
+   results pending. `pad` keeps all content and removes the stretch distortion, but the gray band width
+   still encodes the original aspect ratio, so it tests the distortion, not the aspect cue. `center_crop`
+   removes the aspect band but discards the image sides. Evaluate with
+   `src/explain/resize_mode_eval.py`, which reports test AUROC overall and within aspect-ratio quintiles.
+   Region-probe and outline-control scripts assume stretched images and masks, so they do not apply to
+   these models.
