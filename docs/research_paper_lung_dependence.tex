@@ -56,9 +56,11 @@ The two classes were exported differently. In the test split the median Normal f
 images contains both classes. Classifiers trained on the same training split but given only such properties
 recover the label almost as well as the network (Table~\ref{tab:cue-baselines}); file size alone reaches
 0.980. This shows that the label is recoverable from acquisition properties, a precondition for shortcut
-learning, not that the network uses them: it receives $224\times224$ resized, normalized pixels and cannot read
+learning~\cite{geirhos2020shortcut}, not that the network uses them: it receives $224\times224$ resized, normalized pixels and cannot read
 file size or original dimensions. File size is also not a pure artefact, since compressibility may carry some
-disease signal.
+disease signal. Confounds of this kind are documented for chest radiographs: convolutional networks could
+identify the source hospital of a radiograph almost perfectly~\cite{zech2018variable}, and COVID-19 detectors
+were found to rely on acquisition-related features rather than pathology~\cite{degrave2020shortcuts}.
 
 \begin{table}[htbp]
 \centering
