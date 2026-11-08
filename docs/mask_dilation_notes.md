@@ -37,8 +37,8 @@ and left in the background? If so, growing every mask should push it toward chan
 
 The model's ranking is redundant: lung content is used, and so is information outside the thorax. This earlier
 suspicion in `explanation_link_notes.md`, that lung remnants in the background inflate the gray-the-lungs
-result, is largely not supported. Lung-aware training (Step 4) is justified as a test. A cheaper check comes
-first: which outside-the-thorax content suffices, starting with keeping only the image margin.
+result, is largely not supported. Lung-aware training (Step 4) was run as the follow-up test; its results
+(thorax-only, random-background and fixed-box variants, 3 seeds each) are in `lung_aware_notes.md`. They show that no single region is necessary for the headline AUROC.
 
 ## Limits
 
