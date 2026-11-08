@@ -38,6 +38,7 @@ segmenter trained on adult radiographs, and no clinical claims.
 | 3. Explanation link | Done | `docs/explanation_link_notes.md` |
 | Extra: acquisition baselines, cue perturbation, region probe | Done | `docs/nonanatomical_baseline_notes.md`, `docs/cue_perturbation_notes.md`, `docs/region_probe_notes.md` |
 | 4. Remedy: lung-aware training, 3 seeds | Done; reliance not reduced by random-background training, thorax-only matches baseline; outline control run | `docs/lung_aware_notes.md`, `docs/lung_aware_eval/`, `docs/outline_control/` |
+| Extra: resize control (pad, center_crop) | In progress; `pad` seed 42 matches stretch (0.9980 vs 0.9978); other seeds and `center_crop` pending | `src/explain/resize_mode_eval.py`, `docs/resize_control/` |
 | 5. Write-up | Results section drafted (paper Section 8); README and model card checked | `docs/research_paper_lung_dependence.tex` |
 | 6. Freeze and check | Pending (Nov 18) | |
 

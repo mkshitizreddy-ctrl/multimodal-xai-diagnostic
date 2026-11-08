@@ -1,0 +1,11 @@
+{
+  "checkpoint": "checkpoints/vision_resize_pad_s42/best_model.pth",
+  "checkpoint_sha256": "4d4bd985272f718d879a09a0badd00d8e7c7a9d0c754f4ab814dfaa1a7c800fa",
+  "resize_mode": "pad",
+  "n_images": 1165,
+  "auroc": 0.9980244815195837,
+  "auroc_ci95": [
+    0.9966180056343519,
+    0.9991346583903719
+  ]
+}

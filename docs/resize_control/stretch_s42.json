@@ -1,0 +1,11 @@
+{
+  "checkpoint": "checkpoints/vision_patient_disjoint_dedup_rho_v1_0/best_model.pth",
+  "checkpoint_sha256": "b622f8c91b43f39b4e89b34b680eaeba9ab65c99591dde0dd91d35436027abd7",
+  "resize_mode": "stretch",
+  "n_images": 1165,
+  "auroc": 0.9977822009512308,
+  "auroc_ci95": [
+    0.9962535594494322,
+    0.9989739599103027
+  ]
+}
