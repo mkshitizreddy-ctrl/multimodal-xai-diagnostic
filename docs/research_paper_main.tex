@@ -44,7 +44,13 @@ identify and correct a training non-determinism issue discovered during
 this replication work. A final patient-disjoint, deduplicated evaluation
 (1,165 test images) showed near-ceiling vision AUROC (0.9978), fusion AUROC
 rising from 0.9982 to 1.0000 as injected synthetic signal strengthened, and
-Grad-CAM maps that were entirely zero for 23\% of test images.
+Grad-CAM maps that were entirely zero for 23\% of test images. Frozen-model
+interventions, acquisition-only baselines and lung-aware retraining over three
+seeds showed that this near-ceiling AUROC is carried redundantly: the label is
+recoverable from file size alone (AUROC 0.980), and test AUROC of about 0.997 was
+reproduced from the dilated lung region alone and from a fixed central box alone,
+while the region outside the lungs alone gave 0.96. These results do not show
+that the model reads lung pathology.
 \end{abstract}
 
 \section{Introduction}
@@ -206,6 +212,8 @@ Deleted & All ($n=897$) & Pneumonia ($n=847$) & Normal ($n=50$) \\
 \end{tabular}
 \end{table}
 
+\input{research_paper_lung_dependence}
+
 \section{Limitations}
 The data set is pediatric and from a single public source; performance may
 not generalize across hospitals, imaging devices, age groups, or disease
@@ -236,7 +244,14 @@ $n=5$ seeds gives limited statistical power, and no multiplicity adjustment
 was applied to these paired $t$-tests. In the patient-disjoint evaluation
 (Section~\ref{sec:dedup}), AUROC is near ceiling, Normal-patient identity could
 not be verified, the tabular features are synthetic, and the Grad-CAM statistics
-are conditional on nonzero maps.
+are conditional on nonzero maps. The lung-dependence analyses
+(Section~\ref{sec:lung-dependence}) rest on automatic lung masks from a
+segmenter trained on adult radiographs, with visible defects on consolidated
+lungs; their intervals are image-level and ignore patient clustering; the
+intervention and cue analyses use one frozen checkpoint; the lung-aware variants
+use three seeds, so the reported standard deviations are rough guides; gray-fill
+interventions are out of distribution for the model; no multiplicity adjustment
+was applied; and everything is on one paediatric data set.
 
 \section{Conclusion}
 DenseNet-121 provides strong held-out ranking performance for this research
@@ -255,7 +270,10 @@ smoothing improved calibration without a statistically confirmed cost to
 ranking, on both models. On the later patient-disjoint, deduplicated split, fusion AUROC rose with the
 strength of the injected synthetic signal while explanations for Normal images
 were frequently empty (zero Grad-CAM maps), and a Grad-CAM patch-deletion advantage over random
-deletion disappeared at the largest deletion fraction. Future work should validate on external,
+deletion disappeared at the largest deletion fraction. Interventions, acquisition-only baselines and
+lung-aware retraining showed that the near-ceiling AUROC is carried redundantly by the lung region, a fixed
+central box, the region outside the lungs, and cues recoverable from file size, so it says little about which
+evidence the model uses. Future work should validate on external,
 patient-linked data, compare explanations with expert annotations, and
 extend the remaining three-seed comparisons and the label-smoothing value
 sweep to five seeds for full statistical consistency with the results

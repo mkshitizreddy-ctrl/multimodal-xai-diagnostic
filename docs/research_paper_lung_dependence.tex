@@ -1,0 +1,192 @@
+\section{Does the Model Depend on Lung Content?}
+\label{sec:lung-dependence}
+
+On the patient-disjoint, deduplicated split the vision model reaches AUROC 0.9978, yet only about half of the
+Grad-CAM activation in nonzero maps falls inside the segmented lungs (Section~\ref{sec:dedup}). This section
+asks (i) whether classification depends on lung content or can be carried by non-lung regions and acquisition
+cues, (ii) whether the Grad-CAM lung fraction tracks that dependence, and (iii) whether lung-aware training
+changes it. All analyses use the same 1,165 test images (849 Pneumonia). Unless stated otherwise they use the
+single frozen vision checkpoint (seed 42). Intervals are image-level bootstrap intervals (2,000 resamples)
+and ignore the clustering of images within patients. Interventions replace pixels with mid-gray, which the
+model did not see in training and which pushes its outputs toward Pneumonia; we therefore compare AUROC
+rather than sensitivity or specificity, and pair each lung intervention with a displaced-mask control of the
+same shape and area (mean overlap with the true mask 0.26). The analyses are descriptive: no multiplicity
+adjustment was applied, and none of them establishes clinical validity.
+
+\subsection{Lung masks}
+Masks come from an automatic segmenter trained on adult radiographs (mean area 0.38 of the image; 1,162 of 1,165
+masks cover between 10\% and 70\% of it). In a visual check of 24 random test images the outline followed
+aerated lungs well, but 6--8 tiles showed defects, clustered on consolidated lungs: the outline cut into a
+dense lower zone, left a notch, or dropped a region. The mask also excludes the mediastinum and hilum, so
+``background'' contains the heart, ribs, shoulders, abdomen and text markers. We therefore use the masks for
+interventions and report a dilation sensitivity check; we do not treat them as expert annotations.
+
+\subsection{Frozen-model interventions}
+Table~\ref{tab:audit} gives the audit. Keeping only the lungs gives AUROC 0.9746, compared with 0.9374 when the
+same-shaped displaced region is kept; graying the lungs costs 0.022, about four times the 0.005 lost when the
+displaced region is grayed. Lung content is therefore informative. It is not necessary: with the lungs grayed
+the model still reaches 0.9759, and graying the outer 10\% margin changes AUROC by $-0.0007$ (interval
+includes zero). Growing the masks by 4 and 8 px (Euclidean) moved keep-lungs AUROC to 0.982 and 0.989 and
+gray-lungs AUROC to 0.970 and 0.964. With the 8~px masks covering 52\% of the image, the model still reaches
+0.964 with that region grayed, so segmentation defects at the lung boundary do not explain the non-lung signal.
+
+\begin{table}[htbp]
+\centering
+\caption{Frozen-model interventions on the test set ($n=1{,}165$). Matched controls use a displaced copy of
+the lung mask (mean of five random shifts per image).}
+\label{tab:audit}
+\small
+\begin{tabular}{lcc}
+\toprule
+Condition & AUROC [95\% CI] & Change vs original [95\% CI] \\
+\midrule
+Original image & 0.9978 [0.9962, 0.9990] & --- \\
+Keep lungs only & 0.9746 [0.9650, 0.9829] & $-0.0232$ [$-0.0324$, $-0.0155$] \\
+\quad matched: keep displaced region only & 0.9374 [0.9229, 0.9509] & $-0.0604$ [$-0.0748$, $-0.0468$] \\
+Gray the lungs & 0.9759 [0.9672, 0.9839] & $-0.0219$ [$-0.0304$, $-0.0144$] \\
+\quad matched: gray displaced region & 0.9929 [0.9892, 0.9959] & $-0.0049$ [$-0.0079$, $-0.0025$] \\
+Gray the outer 10\% margin & 0.9971 [0.9949, 0.9988] & $-0.0007$ [$-0.0021$, $+0.0005$] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Acquisition cues}
+The two classes were exported differently. In the test split the median Normal file is $1644\times1314$ px and
+495~KB, the median Pneumonia file $1160\times776$ px and 71~KB, and no image size shared by at least 15 test
+images contains both classes. Classifiers trained on the same training split but given only such properties
+recover the label almost as well as the network (Table~\ref{tab:cue-baselines}); file size alone reaches
+0.980. This shows that the label is recoverable from acquisition properties, a precondition for shortcut
+learning, not that the network uses them: it receives $224\times224$ resized, normalized pixels and cannot read
+file size or original dimensions. File size is also not a pure artefact, since compressibility may carry some
+disease signal.
+
+\begin{table}[htbp]
+\centering
+\caption{Test AUROC of classifiers that see only acquisition-level features (model chosen on validation data).}
+\label{tab:cue-baselines}
+\small
+\begin{tabular}{lc}
+\toprule
+Features & Test AUROC [95\% CI] \\
+\midrule
+File size (KB) alone & 0.980 [0.972, 0.988] \\
+Width, height, aspect ratio & 0.916 [0.901, 0.932] \\
+Mean and SD of pixel intensity & 0.749 [0.718, 0.778] \\
+$16\times16$ gray thumbnail (256 values) & 0.977 [0.968, 0.985] \\
+Size, file size and intensity statistics (18 features) & 0.986 [0.979, 0.992] \\
+DenseNet-121 + CBAM (vision only) & 0.998 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The network still outperforms every baseline (smallest paired gap 0.012, bootstrap interval [0.006, 0.019]).
+On the 55 test images where the file-size classifier errs (at its validation Youden threshold), the
+network's AUROC falls to 0.923 [0.845, 0.978] and its error rate is 20.0\%, against 1.1\% on the remaining
+1,110; 11 of its 23 test errors lie among those 55. This is correlational: atypical images may be hard for both.
+
+To test the network's sensitivity to such cues directly we perturbed the original images before the usual
+resize (Table~\ref{tab:cue-perturbation}). JPEG recompression (quality 75 and 25) and a $2\times$ down-up
+resampling left AUROC unchanged, so compression artefacts and fine texture do not drive the ranking. Histogram
+equalization lowered AUROC by 0.007 overall and by 0.113 [$-0.235$, $-0.011$] on the 55 discordant images,
+the only result pointing toward reliance on global intensity; it also produces intensity distributions the
+model never saw, so it is not a clean removal of one cue. Padding to a square kept AUROC at 0.991 but raised
+the false-negative rate at the 0.5 threshold from 1.4\% to 29.7\% (mean logit shift $-5.1$): framing shifts
+the calibration of all images without changing the ranking much.
+
+\begin{table}[htbp]
+\centering
+\caption{Perturbing acquisition cues in the original image (frozen checkpoint, $n=1{,}165$).}
+\label{tab:cue-perturbation}
+\small
+\begin{tabular}{lccc}
+\toprule
+Perturbation & AUROC [95\% CI] & Change [95\% CI] & FNR at 0.5 \\
+\midrule
+None & 0.9978 [0.9963, 0.9990] & --- & 1.4\% \\
+JPEG quality 25 & 0.9978 [0.9962, 0.9990] & $0.0000$ [$-0.0003$, $+0.0003$] & 1.2\% \\
+Histogram equalization & 0.9905 [0.9861, 0.9943] & $-0.0073$ [$-0.0113$, $-0.0038$] & 5.5\% \\
+Pad to square & 0.9907 [0.9864, 0.9943] & $-0.0071$ [$-0.0107$, $-0.0039$] & 29.7\% \\
+Down-up $2\times$ & 0.9978 [0.9963, 0.9990] & $0.0000$ [$-0.0002$, $+0.0002$] & 1.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Does the Grad-CAM lung fraction track the interventions?}
+Among the 847 Pneumonia images with a nonzero map, the lung fraction of Grad-CAM mass is strongly tied to
+mask area (Spearman 0.83), so all correlations below are partial Spearman coefficients controlling for mask
+area, with image-level bootstrap intervals. Grad-CAM mass is enriched inside the lungs: the median ratio of
+lung fraction to mask area is 1.26, and 97\% of maps exceed 1. Images whose Grad-CAM mass lies more inside the
+lungs lose more of their Pneumonia margin when the lungs are grayed ($\rho=-0.634$ [$-0.677$, $-0.582$]), while
+the logit with only the lungs kept is unrelated to the fraction ($\rho=-0.025$ [$-0.095$, $+0.046$]). Part of
+this is generic: the matched displaced-mask contrast correlates too ($+0.333$ [$+0.266$, $+0.393$]), and the
+original logit itself correlates with the fraction ($-0.415$). The part specific to the true lung mask is the
+difference between the two contrasts, $+0.203$ [$+0.129$, $+0.281$]. The lung fraction therefore reflects how
+much of the prediction survives without the lungs, but only partly, and the analysis is correlational. Normal
+images are not analysed because only 50 have a nonzero map.
+
+\subsection{Lung-aware training}
+\label{sec:lung-aware}
+To test whether reliance on non-lung regions can be reduced, we retrained the same DenseNet-121 + CBAM model
+(same split, hyperparameters and early-stopping rule) on masked images, with three seeds (42, 123, 2024) per
+variant. The mask, grown by 8~px, is applied after resizing and before augmentation, with mid-gray outside.
+\emph{Thorax-only} masks every training and validation image; \emph{random-background} masks each training
+image with probability 0.5 and validates on full images; \emph{fixed-box} is an outline control that shows every
+image through the same centred box (72\% of each side, area 0.52, matching the mean thorax mask), so its
+cut-out carries no per-image information. Best validation AUROC was 0.9965--0.9968 (baseline), 0.9958--0.9966
+(random-background), 0.9953--0.9966 (thorax-only) and 0.9953--0.9967 (fixed-box), so validation does not
+separate them. Table~\ref{tab:lung-aware} reports test AUROC when only the named region is kept.
+
+\begin{table}[htbp]
+\centering
+\caption{Test AUROC when only the named region is kept (rest mid-gray), mean $\pm$ SD over three seeds.
+The baseline column differs slightly from the frozen checkpoint (0.9978) because it averages seeds 42, 123 and
+2024 (0.9978, 0.9961, 0.9982). Dashes: not evaluated.}
+\label{tab:lung-aware}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+Input shown & Baseline & Random-bg. & Thorax-only & Fixed-box \\
+\midrule
+Original image & $0.9973\pm0.0011$ & $0.9974\pm0.0005$ & $0.9733\pm0.0157$ & $0.9937\pm0.0006$ \\
+Dilated thorax only & $0.9879\pm0.0030$ & $0.9972\pm0.0004$ & $0.9975\pm0.0009$ & $0.9949\pm0.0014$ \\
+Fixed central box only & $0.9933\pm0.0019$ & $0.9956\pm0.0016$ & $0.9944\pm0.0019$ & $0.9965\pm0.0012$ \\
+Outside thorax only & $0.9672\pm0.0033$ & $0.9572\pm0.0053$ & $0.7441\pm0.0959$ & --- \\
+Outside thorax, outer margin removed & $0.8479\pm0.0286$ & $0.8893\pm0.0195$ & $0.8628\pm0.0343$ & --- \\
+Outer 10\% margin only & $0.9419\pm0.0069$ & $0.9355\pm0.0208$ & $0.6789\pm0.0722$ & --- \\
+Outside the fixed box & $0.9578\pm0.0070$ & $0.9445\pm0.0245$ & $0.7132\pm0.0550$ & $0.8107\pm0.0347$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three observations follow. First, a model that sees only the dilated thorax matches the full-image model
+(0.9975 against 0.9973). Second, random-background training makes the model read the thorax as well as the
+full image (0.9972 against 0.9879 for the baseline) but does not remove the outside signal (0.957 against
+0.967 for the region outside the thorax; 0.936 against 0.942 for the margin alone), differences of about 0.01
+or less that are comparable to seed-to-seed variation; training on full images half the time leaves the other cues available. Third, thorax-only training
+removes most of the outside signal (0.744, seed range 0.685--0.855), but the size of this drop is uncertain.
+The thorax-only models are out of distribution on unmasked images, which explains their lower and more
+variable original-image AUROC.
+
+A thorax-only model sees the lungs through a gray cut-out, whose outline could itself carry the label. A
+classifier given only the shape of the lung mask (area, bounding box, row and column profiles, or a
+$16\times16$ thumbnail of the mask, no pixel intensities) reaches test AUROC 0.946 [0.932, 0.959] (0.938 for
+the 8~px masks used in training), although mask area alone gives only 0.61. Aspect ratio explains part of this,
+because images are resized to a square: aspect ratio alone gives 0.844, and the outline classifier still
+reaches 0.81--0.96 inside aspect-ratio quintiles (the two highest-aspect bins contain only 16 and 6 Normal
+images, so those values are noisy). The fixed-box control shows that the outline is not needed for the
+network's AUROC: models that see the identical box for every image reach 0.9965 on that input, level with the
+thorax-only models on theirs, and the baseline already scores 0.9933 on the box. The residual signal outside
+the thorax is also not an outline effect, since the fixed-box models reach 0.81 on the region outside their box
+without any per-image outline. The thorax-only and fixed-box models differ by 0.001, inside seed spread, so
+this experiment cannot say whether the thorax-only models use the outline at all.
+
+\subsection{Summary}
+Test AUROC of about 0.997 is reproduced from the dilated thorax alone, from a fixed central box alone, and (at
+0.96) from the region outside the lungs alone, while the label is recoverable from file size alone (0.980).
+The network is not insensitive to lung content, since removing the lungs costs four times what removing a
+matched displaced region costs and the lung fraction of Grad-CAM tracks part of that effect, but no single
+region, outline or cue is necessary. The 0.998 AUROC therefore says little about which evidence the model
+uses. The experiments neither show that any of these models reads lung pathology nor support a claim of
+clinical validity, and random-background training did not reduce reliance on non-lung regions, whereas
+thorax-only training removed most of it by construction.
