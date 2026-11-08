@@ -34,6 +34,7 @@ Confusion counts: TP 837, FN 12, TN 305, FP 11. These were computed from the per
 
 - Grad-CAM produced entirely zero maps for 268 of 1,165 test images (23.0%): 266 of 316 Normal and 2 of 849 Pneumonia. All were entirely negative before the standard ReLU. All 268 zero-map images have a predicted pneumonia probability of 0.134 or lower (mean 0.004). The model has a single Pneumonia output and Grad-CAM explains that output, so a blank map means no region supports a Pneumonia prediction, which is expected for images scored as clearly Normal. The 2 Pneumonia-labelled zero-map images are false negatives (probabilities 0.004 and 0.070). A zero map carries no spatial information; it does not show that the model ignores the image. The demo reports this instead of drawing a heatmap.
 - Among the 897 nonzero maps, the mean fraction of positive Grad-CAM activation inside segmented lungs was 0.499 (SD 0.152). This is an overlap proxy, not a measure of explanation correctness.
+- Intervention audit (same test set, matched displaced-mask controls): keeping only the segmented lungs gives AUROC 0.9746 versus 0.9374 for a displaced region, and graying the lungs costs 0.022 versus 0.005, so lung content is informative; with the lungs grayed the model still reaches 0.9759. Classifiers that see only acquisition properties reach AUROC 0.980 (file size alone) to 0.986, so the label is recoverable without anatomy. Retraining on thorax-only images or on a fixed central box reaches AUROC 0.9975 and 0.9965 (3 seeds), level with this model, so the headline AUROC does not show that the model relies on lung pathology. See `docs/lung_aware_notes.md`.
 - In a patch-deletion test, Grad-CAM-ranked deletion reduced the Pneumonia logit more than random deletion at 5–20% deletion, with a shrinking advantage at 30% and a reversal at 40%. It measures sensitivity to one intervention and does not establish faithfulness or clinical validity.
 
 ## Intended use and limitations
@@ -43,6 +44,8 @@ Confusion counts: TP 837, FN 12, TN 305, FP 11. These were computed from the per
 - Single public pediatric dataset; no external validation, so performance on other hospitals, devices, age groups, or disease prevalences is unknown.
 - AUROC is near ceiling, so small differences are hard to interpret.
 - Explanations are uneven across classes: most Normal images get empty Grad-CAM maps.
+- Framing sensitivity: padding images to a square before resizing keeps AUROC at 0.991 but raises the false-negative rate at threshold 0.5 from 1.4% to 29.7% (mean logit shift -5.1). Inputs framed differently from the original data may be misclassified at the default threshold.
+- The two classes in this dataset differ in image size and file size; the model may use correlates of the export pipeline as well as lung content (see above).
 
 ## Loading and integrity
 

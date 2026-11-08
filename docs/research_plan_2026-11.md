@@ -29,6 +29,18 @@ segmenter trained on adult radiographs, and no clinical claims.
 | 6. Freeze and check | Nov 18 | Final CI, README claims checked against results, release tag | step 5 |
 | Buffer | Nov 19 | Submission day | |
 
+## Status (2026-11-08)
+
+| Step | Status | Where |
+|---|---|---|
+| 1. Frozen-model audit | Done | `docs/shortcut_audit_patient_disjoint_dedup_rho_v1_vision/`, dilation runs, `docs/mask_dilation_notes.md` |
+| 2. Mask QC and interpretation | Done | `docs/explanation_link_notes.md` |
+| 3. Explanation link | Done | `docs/explanation_link_notes.md` |
+| Extra: acquisition baselines, cue perturbation, region probe | Done | `docs/nonanatomical_baseline_notes.md`, `docs/cue_perturbation_notes.md`, `docs/region_probe_notes.md` |
+| 4. Remedy: lung-aware training, 3 seeds | Done; reliance not reduced by random-background training, thorax-only matches baseline; outline control run | `docs/lung_aware_notes.md`, `docs/lung_aware_eval/`, `docs/outline_control/` |
+| 5. Write-up | Results section drafted (paper Section 8); README and model card checked | `docs/research_paper_lung_dependence.tex` |
+| 6. Freeze and check | Pending (Nov 18) | |
+
 ## Decision rule for step 4
 
 - If background-only AUROC stays well above the displaced-mask control, run lung-aware training.

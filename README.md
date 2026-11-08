@@ -67,6 +67,19 @@ Full methodology, confidence intervals, statistical tests, and artifacts: [`docs
 
 The detailed report links to per-image CSVs and generated artifacts.
 
+## Do the model and its explanations depend on lung content?
+
+Frozen-model and retraining experiments on the same 1,165-image test split (details in [`docs/lung_aware_notes.md`](docs/lung_aware_notes.md) and the paper, Section 8). All are descriptive; intervals are image-level bootstrap intervals that ignore patient clustering.
+
+- **Interventions with matched controls.** Keeping only the segmented lungs gives AUROC 0.975, versus 0.937 for a same-shaped displaced region; graying the lungs costs 0.022, versus 0.005 for the displaced region. Lung content is informative, but with the lungs grayed the model still reaches 0.976.
+- **Acquisition-only classifiers.** File size alone gives AUROC 0.980 and 18 acquisition features 0.986, against 0.998 for the CNN. The CNN cannot read file size, so this shows the label is recoverable from acquisition properties, not that the CNN uses them.
+- **Perturbations.** JPEG recompression and a 2x down-up resample leave AUROC unchanged; histogram equalization lowers it by 0.007; padding to a square keeps AUROC at 0.991 but raises the false-negative rate at the 0.5 threshold from 1.4% to 29.7%.
+- **Lung-aware retraining (3 seeds).** A model that sees only the dilated thorax reaches 0.9975 and one that sees only a fixed central box 0.9965, level with the baseline (0.9973). Training on half-masked images did not reduce the signal outside the thorax.
+
+**Interpretation:** AUROC of about 0.997 is reproduced from several different regions and cues, and no single one is necessary, so the headline AUROC says little about which evidence the model uses. These results do not show that the model reads lung pathology.
+
+Scripts: `src/explain/shortcut_audit.py`, `nonanatomical_baseline.py`, `baseline_discordance.py`, `cue_perturbation.py`, `explanation_link.py`, `region_probe.py`, `lung_aware_eval.py`, `silhouette_baseline.py`, `silhouette_aspect_check.py`, `outline_control_eval.py`. Lung-aware training uses `configs/vision_lung_*.yaml` after `python src/explain/cache_split_masks.py`.
+
 ## Model and workflow
 
 ```text
@@ -171,6 +184,8 @@ See [`docs/potharaju_comparison.md`](docs/potharaju_comparison.md) for the publi
 - Patient IDs are available for pneumonia images but not reliably identifiable for Normal images; patient-level separation cannot be fully verified for the Normal class.
 - AUROC values in the latest experiment are near ceiling, so small numerical differences require caution. DeLong p-values were Holm–Bonferroni-adjusted across the five ρ comparisons, but the bootstrap confidence intervals are unadjusted and all comparisons reuse one test set.
 - Grad-CAM and lung-energy fractions are explanatory proxies. Zero heatmaps are a known limitation, and inpainting counterfactuals do not establish causality.
+- The lung-dependence analyses use automatic lung masks from a segmenter trained on adult radiographs (visible defects on consolidated lungs), one frozen checkpoint for the interventions, and three seeds for the retraining variants.
+- The label is recoverable from file size alone (AUROC 0.980), and the model is sensitive to image framing (padding to a square shifts its calibration), so performance on images exported differently is unknown.
 - This is a research prototype, not a medical device or clinical decision-support tool.
 
 ## Ethics and citation
