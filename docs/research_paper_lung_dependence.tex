@@ -183,6 +183,11 @@ the thorax is also not an outline effect, since the fixed-box models reach 0.81 
 without any per-image outline. The thorax-only and fixed-box models differ by 0.001, inside seed spread, so
 this experiment cannot say whether the thorax-only models use the outline at all.
 
+Stretching images to a square is not what the models rely on. Retraining with aspect-preserving padding
+instead of stretching (three seeds) gives test AUROC $0.9976\pm0.0007$, against $0.9973\pm0.0011$ for the
+stretched baselines, and AUROC stays at or above 0.989 in each of five aspect-ratio bins for both. The padding
+bands still encode the original aspect ratio, so this does not show that the models ignore it.
+
 \subsection{Summary}
 Test AUROC of about 0.997 is reproduced from the dilated thorax alone, from a fixed central box alone, and (at
 0.96) from the region outside the lungs alone, while the label is recoverable from file size alone (0.980).

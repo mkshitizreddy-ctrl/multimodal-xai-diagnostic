@@ -110,6 +110,23 @@ identical for all images, so it carries no per-image information. Best validatio
 - The thorax-only and fixed-box models differ by 0.001 on their own inputs, inside seed spread, so this
   experiment cannot say whether the thorax-only models use the outline at all.
 
+## Resize control: aspect-preserving padding (3 seeds)
+
+Retrained with `data.resize_mode: pad` (whole image kept, padded to a square with mid-gray bands, no
+stretching), same split and hyperparameters, seeds 42, 123, 2024. Evaluated with
+`src/explain/resize_mode_eval.py` and summarised by `resize_mode_summary.py`
+(`docs/resize_control/`). Bins are equal-count aspect-ratio quintiles of the original image.
+
+| Mode | Test AUROC (mean ± SD) | Bin 1 | Bin 2 | Bin 3 | Bin 4 | Bin 5 |
+|---|---|---|---|---|---|---|
+| stretch (baseline) | 0.9973 ± 0.0011 | 0.9979 | 0.9991 | 0.9921 | 0.9891 | 0.9980 |
+| pad | 0.9976 ± 0.0007 | 0.9983 | 0.9988 | 0.9918 | 0.9911 | 0.9976 |
+
+Per seed (42, 123, 2024): stretch 0.9978, 0.9961, 0.9982; pad 0.9980, 0.9967, 0.9979. The difference of
+0.0003 is well inside seed spread, and both modes stay at or above 0.989 in every bin. Removing the stretch
+distortion therefore does not change the result. The padding bands still encode the original aspect ratio,
+so this does not show that the models ignore it; `center_crop` (which removes the band) is not yet run.
+
 ## What it does not show
 
 - Thorax-only models are out of distribution on unmasked images, which is why their `original` AUROC is
@@ -131,10 +148,6 @@ claim of clinical validity.
 ## Next checks
 
 1. Run the frozen-model audit and the cue-perturbation test on the lung-aware checkpoints (optional).
-2. Aspect-preserving resizing. Code and configs are in place (`data.resize_mode: pad` or `center_crop`),
-   results pending. `pad` keeps all content and removes the stretch distortion, but the gray band width
-   still encodes the original aspect ratio, so it tests the distortion, not the aspect cue. `center_crop`
-   removes the aspect band but discards the image sides. Evaluate with
-   `src/explain/resize_mode_eval.py`, which reports test AUROC overall and within aspect-ratio quintiles.
-   Region-probe and outline-control scripts assume stretched images and masks, so they do not apply to
-   these models.
+2. Aspect-preserving resizing: `pad` is done (see "Resize control" above). `center_crop` (removes the
+   aspect band but discards the image sides) is optional and not yet run. Region-probe and outline-control
+   scripts assume stretched images and masks, so they do not apply to these models.

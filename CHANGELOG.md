@@ -7,6 +7,7 @@ Tags: `v1.0` and `v2.0` are earlier snapshots (August 2026). `v3.0` marks the st
 October 2026 patient-disjoint audit. The `v0.x` headings below are internal phase labels, not tags.
 
 ## [Unreleased]
+- Research: resize control results (3 seeds). Aspect-preserving padding gives test AUROC 0.9976 ± 0.0007 versus 0.9973 ± 0.0011 for stretch, and at least 0.989 in each aspect-ratio bin; added `src/explain/resize_mode_summary.py`, notes, paper sentence and README bullet
 - CI fix: the torchxrayvision lung-segmentation weights download returned an HTML gateway-timeout page on the runner, which broke 5 tests. `lung_segmentation.py` now discards a corrupt cached file, the dependent tests skip (not fail) when the weights are unavailable (`tests/conftest.py`), and the workflow caches `~/.torchxrayvision`
 - Research: resize-mode control. `data.resize_mode` (`stretch` default, `pad`, `center_crop`) in `ChestXrayDataset`, configs `vision_resize_pad.yaml` and `vision_resize_center_crop.yaml`, and `src/explain/resize_mode_eval.py` (test AUROC overall and within aspect-ratio quintiles). Code and tests only; results to follow
 - Docs: README, model card and research plan updated with the lung-dependence results (intervention audit, acquisition baselines, framing sensitivity, lung-aware retraining) and the plan's step status.

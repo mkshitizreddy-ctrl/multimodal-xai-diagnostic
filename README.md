@@ -75,7 +75,7 @@ Frozen-model and retraining experiments on the same 1,165-image test split (deta
 - **Acquisition-only classifiers.** File size alone gives AUROC 0.980 and 18 acquisition features 0.986, against 0.998 for the CNN. The CNN cannot read file size, so this shows the label is recoverable from acquisition properties, not that the CNN uses them.
 - **Perturbations.** JPEG recompression and a 2x down-up resample leave AUROC unchanged; histogram equalization lowers it by 0.007; padding to a square keeps AUROC at 0.991 but raises the false-negative rate at the 0.5 threshold from 1.4% to 29.7%.
 - **Lung-aware retraining (3 seeds).** A model that sees only the dilated thorax reaches 0.9975 and one that sees only a fixed central box 0.9965, level with the baseline (0.9973). Training on half-masked images did not reduce the signal outside the thorax.
-- **Resize control (1 seed so far).** Retraining with aspect-preserving padding instead of stretching to a square gives test AUROC 0.9980 versus 0.9978 for the stretched model on the same seed, and AUROC stays at or above 0.990 in each of five aspect-ratio bins for both. This indicates the stretch step is not what the model relies on. It is not evidence that the model ignores the aspect ratio, since the padding bands still encode it.
+- **Resize control (3 seeds).** Retraining with aspect-preserving padding instead of stretching to a square gives test AUROC 0.9976 ± 0.0007 versus 0.9973 ± 0.0011 for the stretched baselines, and AUROC stays at or above 0.989 in each of five aspect-ratio bins for both. This indicates the stretch step is not what the model relies on. It is not evidence that the model ignores the aspect ratio, since the padding bands still encode it.
 
 **Interpretation:** AUROC of about 0.997 is reproduced from several different regions and cues, and no single one is necessary, so the headline AUROC says little about which evidence the model uses. These results do not show that the model reads lung pathology.
 
@@ -145,7 +145,7 @@ Run the test suite:
 python -m pytest -q
 ```
 
-The most recently recorded full test run passed **143 tests**, with six third-party deprecation warnings. Run the tests locally to verify your environment. For multi-seed experiments, use separate `--checkpoint-dir` and `--log-dir` values to avoid overwriting outputs. Check the relevant YAML configuration and each script's `--help` before running other experiment variants.
+The most recently recorded full test run passed **144 tests**, with six third-party deprecation warnings. Run the tests locally to verify your environment. For multi-seed experiments, use separate `--checkpoint-dir` and `--log-dir` values to avoid overwriting outputs. Check the relevant YAML configuration and each script's `--help` before running other experiment variants.
 
 ## Reproducing the latest experiment
 
