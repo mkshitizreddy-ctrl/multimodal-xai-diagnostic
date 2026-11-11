@@ -6,8 +6,10 @@ Grad-CAM activation in nonzero maps falls inside the segmented lungs (Section~\r
 asks (i) whether classification depends on lung content or can be carried by non-lung regions and acquisition
 cues, (ii) whether the Grad-CAM lung fraction tracks that dependence, and (iii) whether lung-aware training
 changes it. All analyses use the same 1,165 test images (849 Pneumonia). Unless stated otherwise they use the
-single frozen vision checkpoint (seed 42). Intervals are image-level bootstrap intervals (2,000 resamples)
-and ignore the clustering of images within patients. Interventions replace pixels with mid-gray, which the
+single frozen vision checkpoint (seed 42). Intervals are image-level bootstrap intervals (2,000 resamples).
+For the frozen-checkpoint audit and cue perturbations we also resampled Pneumonia images by patient
+(335 patients for 849 images; Normal images are treated as independent because their patient identity is
+not recoverable): interval widths changed by at most about 5\%. Interventions replace pixels with mid-gray, which the
 model did not see in training and which pushes its outputs toward Pneumonia; we therefore compare AUROC
 rather than sensitivity or specificity, and pair each lung intervention with a displaced-mask control of the
 same shape and area (mean overlap with the true mask 0.26). The analyses are descriptive: no multiplicity

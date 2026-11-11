@@ -247,7 +247,8 @@ not be verified, the tabular features are synthetic, and the Grad-CAM statistics
 are conditional on nonzero maps. The lung-dependence analyses
 (Section~\ref{sec:lung-dependence}) rest on automatic lung masks from a
 segmenter trained on adult radiographs, with visible defects on consolidated
-lungs; their intervals are image-level and ignore patient clustering; the
+lungs; their intervals are image-level (a patient-clustered bootstrap of the
+frozen-checkpoint analyses changed widths by at most about 5\%); the
 intervention and cue analyses use one frozen checkpoint; the lung-aware variants
 use three seeds, so the reported standard deviations are rough guides; gray-fill
 interventions are out of distribution for the model; no multiplicity adjustment

@@ -69,7 +69,7 @@ The detailed report links to per-image CSVs and generated artifacts.
 
 ## Do the model and its explanations depend on lung content?
 
-Frozen-model and retraining experiments on the same 1,165-image test split (details in [`docs/lung_aware_notes.md`](docs/lung_aware_notes.md) and the paper, Section 8). All are descriptive; intervals are image-level bootstrap intervals that ignore patient clustering.
+Frozen-model and retraining experiments on the same 1,165-image test split (details in [`docs/lung_aware_notes.md`](docs/lung_aware_notes.md) and the paper, Section 8). All are descriptive; intervals are image-level bootstrap intervals. For the frozen-checkpoint audit and cue perturbations, a patient-clustered bootstrap (`src/explain/cluster_bootstrap.py`, `docs/cluster_bootstrap/`) changes interval widths by at most about 5%.
 
 - **Interventions with matched controls.** Keeping only the segmented lungs gives AUROC 0.975, versus 0.937 for a same-shaped displaced region; graying the lungs costs 0.022, versus 0.005 for the displaced region. Lung content is informative, but with the lungs grayed the model still reaches 0.976.
 - **Acquisition-only classifiers.** File size alone gives AUROC 0.980 and 18 acquisition features 0.986, against 0.998 for the CNN. The CNN cannot read file size, so this shows the label is recoverable from acquisition properties, not that the CNN uses them.

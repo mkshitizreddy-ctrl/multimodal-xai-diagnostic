@@ -134,7 +134,7 @@ so this does not show that the models ignore it; `center_crop` (which removes th
   not trained for full images.
 - The masks come from an automatic segmenter trained on adult radiographs; they were checked on a sample
   (`qc_lung_masks.png`) but not against expert annotation.
-- Image-level bootstrap intervals ignore patient clustering. One dataset, one architecture, three seeds.
+- Intervals are image-level bootstrap. A patient-clustered bootstrap of the frozen-checkpoint audit and cue perturbations (`docs/cluster_bootstrap/`) changes widths by at most about 5%; the retraining intervals were not re-run that way, and Normal images are treated as independent. One dataset, one architecture, three seeds.
   Nothing here establishes clinical validity or shows which image evidence a clinician would use.
 
 ## Summary
