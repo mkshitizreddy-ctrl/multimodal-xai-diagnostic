@@ -149,7 +149,7 @@ The most recently recorded full test run passed **147 tests**, with eight third-
 
 ## Reproducing the latest experiment
 
-> **Status: derived from the scripts, not yet end-to-end tested.** The steps below follow the order and paths hard-coded in the repository's scripts. Run them in order and check each script's `--help` where it has one. Generated data (`data/processed*/`), checkpoints, and logs are not committed to Git.
+> **Status: partly verified.** The steps below follow the order and paths hard-coded in the repository's scripts. On the author's machine, `verify_patient_disjoint_dedup.py` and `verify_patient_disjoint_dedup_rho_variants.py` pass on the existing splits, and training and evaluation of the vision model have been rerun for several seeds. The split-generation scripts refuse to overwrite existing output and have not been rerun from scratch. Run them in order and check each script's `--help` where it has one. Generated data (`data/processed*/`), checkpoints, and logs are not committed to Git.
 
 1. **Base data.** Place the source images in `data/raw/images` and run `data/scripts/prepare_pneumonia_dataset.py` to create `data/processed/`.
 2. **Patient-disjoint, deduplicated split** (reads `data/processed`, writes `data/processed_patient_disjoint_dedup_v1`):

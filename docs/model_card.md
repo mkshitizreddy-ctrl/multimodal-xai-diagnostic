@@ -15,7 +15,7 @@ This card describes the checkpoint served by the live demo and hosted on Hugging
 
 - **Data:** the public pediatric Chest X-Ray Pneumonia dataset (5,856 records). 32 exact duplicate image contents were removed, leaving 5,824 images, split into 3,727 train, 932 validation, and 1,165 test images. SHA-256 image hashes and known pneumonia patient IDs showed no overlap across splits. Patient identity for Normal images could not be verified, so complete patient-level separation is **not** claimed.
 - **Optimization:** AdamW, learning rate 1e-4, weight decay 1e-5, cosine schedule, batch size 32, up to 15 epochs with early stopping (patience 4), seed 42. Training augmentation: horizontal flip (p = 0.5) and rotation up to 5 degrees.
-- **Reproduce:** see "Reproducing the latest experiment" in the repository README (derived from the scripts; not yet tested end to end).
+- **Reproduce:** see "Reproducing the latest experiment" in the repository README (partly verified: the split verification scripts pass and vision training and evaluation were rerun, but the split-generation scripts have not been rerun from scratch).
 
 ## Test results (1,165 images: 849 Pneumonia, 316 Normal)
 
