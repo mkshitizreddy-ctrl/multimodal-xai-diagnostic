@@ -48,7 +48,7 @@ On the 55 test images where a file-size-only classifier is wrong (20 Pneumonia, 
 
 ## Limits
 
-One dataset, one checkpoint, one seed. Image-level bootstrap CIs ignore patient clustering. Five conditions
+One dataset, one checkpoint, one seed. Image-level bootstrap CIs; a patient-clustered bootstrap (`docs/cluster_bootstrap/`) changes their widths by at most about 5%. Five conditions
 were tested on three subsets without multiplicity correction. The discordant subset has 55 images. The
 perturbations are not clean interventions on a single cue. Original file size and dimensions are removed by
 the model's own resize and are not tested here.

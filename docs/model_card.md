@@ -44,7 +44,7 @@ Confusion counts: TP 837, FN 12, TN 305, FP 11. These were computed from the per
 - Single public pediatric dataset; no external validation, so performance on other hospitals, devices, age groups, or disease prevalences is unknown.
 - AUROC is near ceiling, so small differences are hard to interpret.
 - Explanations are uneven across classes: most Normal images get empty Grad-CAM maps.
-- Framing sensitivity: padding images to a square before resizing keeps AUROC at 0.991 but raises the false-negative rate at threshold 0.5 from 1.4% to 29.7% (mean logit shift -5.1). Inputs framed differently from the original data may be misclassified at the default threshold.
+- Framing sensitivity: padding images to a square before resizing keeps AUROC at 0.991 but raises the false-negative rate at threshold 0.5 from 1.4% to 29.7% (mean logit shift -5.1). Inputs framed differently from the original data may be misclassified at the default threshold. This is a property of this checkpoint: retraining with aspect-preserving padding (3 seeds) gives test AUROC 0.9976 ± 0.0007, so padding itself is not what breaks the model.
 - The two classes in this dataset differ in image size and file size; the model may use correlates of the export pipeline as well as lung content (see above).
 
 ## Loading and integrity

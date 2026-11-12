@@ -186,7 +186,7 @@ See [`docs/potharaju_comparison.md`](docs/potharaju_comparison.md) for the publi
 - AUROC values in the latest experiment are near ceiling, so small numerical differences require caution. DeLong p-values were Holm–Bonferroni-adjusted across the five ρ comparisons, but the bootstrap confidence intervals are unadjusted and all comparisons reuse one test set.
 - Grad-CAM and lung-energy fractions are explanatory proxies. Zero heatmaps are a known limitation, and inpainting counterfactuals do not establish causality.
 - The lung-dependence analyses use automatic lung masks from a segmenter trained on adult radiographs (visible defects on consolidated lungs), one frozen checkpoint for the interventions, and three seeds for the retraining variants.
-- The label is recoverable from file size alone (AUROC 0.980), and the model is sensitive to image framing (padding to a square shifts its calibration), so performance on images exported differently is unknown.
+- The label is recoverable from file size alone (AUROC 0.980), and the frozen model is sensitive to image framing (padding to a square keeps AUROC but raises its false-negative rate at threshold 0.5 from 1.4% to 29.7%), so performance on images exported differently is unknown.
 - This is a research prototype, not a medical device or clinical decision-support tool.
 
 ## Ethics and citation
