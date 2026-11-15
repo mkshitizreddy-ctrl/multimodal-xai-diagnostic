@@ -14,43 +14,26 @@
 \maketitle
 
 \begin{abstract}
-This work evaluates DenseNet-121 for binary pneumonia classification from
-pediatric chest X-rays, with Convolutional Block Attention Module (CBAM)
-attention and post-hoc Grad-CAM explanations. On a 624-image held-out test
-split, the vision model achieved an AUROC of 0.9604 (95\% CI: 0.9412--0.9757)
-and an AUPR of 0.9628 (95\% CI: 0.9377--0.9825). A late-fusion configuration
-using synthetic tabular attributes improves point estimates further; this
-demonstrates that the implementation can exploit correlated multimodal
-signal, not clinical validity with real patient records. Extending the CBAM
-comparison from three to five random seeds revealed that its apparent
-benefit on both ranking (AUROC) and Grad-CAM lung-localization was not
-statistically distinguishable from noise ($p=0.67$ and $p=0.57$
-respectively). By contrast, an attention-consistency loss that explicitly
-penalizes CBAM's spatial attention for falling outside the segmented lung
-field showed a significant localization improvement ($p=0.038$) and a
-significant AUROC cost ($p=0.012$) in a five-seed comparison with partly
-inconsistent seeding. After a training non-determinism issue was fixed and
-all five seeds were rerun under deterministic seeding, the AUROC cost
-persisted (mean $\Delta\approx-0.032$, $p\approx0.04$) but the localization
-gain was no longer statistically significant ($+0.063$, $p=0.196$). We
-separately show that both the vision and fusion models are miscalibrated
-(Expected Calibration Error $\approx 0.135$, concentrated in the
-highest-confidence bin), that two standard post-hoc corrections
-(temperature scaling, isotonic regression) fail to meaningfully improve
-this, and that training with label smoothing does, without a statistically
-confirmed cost to ranking performance on either model. We report all
-thresholded and ranking metrics with bootstrap confidence intervals and
-identify and correct a training non-determinism issue discovered during
-this replication work. A final patient-disjoint, deduplicated evaluation
-(1,165 test images) showed near-ceiling vision AUROC (0.9978), fusion AUROC
-rising from 0.9982 to 1.0000 as injected synthetic signal strengthened, and
-Grad-CAM maps that were entirely zero for 23\% of test images. Frozen-model
-interventions, acquisition-only baselines and lung-aware retraining over three
-seeds showed that this near-ceiling AUROC is carried redundantly: the label is
-recoverable from file size alone (AUROC 0.980), and test AUROC of about 0.997 was
-reproduced from the dilated lung region alone and from a fixed central box alone,
-while the region outside the lungs alone gave 0.96. These results do not show
-that the model reads lung pathology.
+This work studies DenseNet-121 with Convolutional Block Attention Module (CBAM) attention for binary
+pneumonia classification from pediatric chest X-rays, together with post-hoc Grad-CAM explanations,
+late fusion with synthetic tabular attributes, and an audit of what the classifier relies on. On a final
+patient-disjoint, deduplicated evaluation (1,165 test images) the vision model reached near-ceiling AUROC
+(0.9978); fusion AUROC rose from 0.9982 to 1.0000 as the injected synthetic signal strengthened, which
+shows that the implementation can exploit correlated multimodal signal, not clinical validity with real
+patient records; and Grad-CAM maps were entirely zero for 23\% of test images. Frozen-model interventions,
+acquisition-only baselines and lung-aware retraining over three seeds showed that this near-ceiling AUROC is
+carried redundantly: the label is recoverable from file size alone (AUROC 0.980), and test AUROC of about
+0.997 was reproduced from the dilated lung region alone and from a fixed central box alone, while the region
+outside the lungs alone gave 0.96. These results do not show that the model reads lung pathology.
+Earlier experiments on a 624-image test split (vision AUROC 0.9604, 95\% CI: 0.9412--0.9757) are also
+reported, all with bootstrap confidence intervals. Extending the CBAM comparison from three to five seeds
+showed that its apparent benefit on ranking and on Grad-CAM lung localization was not distinguishable from
+noise ($p=0.67$ and $p=0.57$). An attention-consistency loss that penalizes attention outside the lung field
+first looked significant, but after a training non-determinism issue was found and fixed and five seeds were
+rerun deterministically, its AUROC cost persisted (mean $\Delta\approx-0.032$, $p\approx0.04$) while the
+localization gain did not (+0.063, $p=0.196$). Both vision and fusion models were miscalibrated (Expected
+Calibration Error $\approx 0.135$); temperature scaling and isotonic regression did not meaningfully help,
+whereas label smoothing did, without a statistically confirmed cost to ranking performance.
 \end{abstract}
 
 \section{Introduction}
